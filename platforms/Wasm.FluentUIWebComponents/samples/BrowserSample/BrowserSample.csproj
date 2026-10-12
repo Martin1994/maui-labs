@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>FluentBrowserSample</AssemblyName>
+    <RootNamespace>FluentBrowserSample</RootNamespace>
+    <SelfContained>true</SelfContained>
+    <UseAppHost>false</UseAppHost>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <DebugType>none</DebugType>
+    <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/Wasm.FluentUIWebComponents/Wasm.FluentUIWebComponents.csproj" />
+    <PackageReference Include="Microsoft.DotNet.ILCompiler.LLVM" />
+    <PackageReference Include="runtime.linux-arm64.Microsoft.DotNet.ILCompiler.LLVM" />
+    <MauiXaml Include="**/*.xaml" Exclude="$(DefaultItemExcludes)" Inflator="SourceGen" />
+    <UnmanagedEntryPointsAssembly Include="Microsoft.Maui.Platforms.Wasm.FluentUIWebComponents" />
+    <WasmExtraFilesToDeploy Include="wwwroot/*" />
+  </ItemGroup>
+  <Target Name="CheckBrowserBootstrap" BeforeTargets="CoreCompile" Condition="'$(DesignTimeBuild)' != 'true'">
+    <!-- ResolveProjectReferences has already built the library and its declarations. -->
+    <Exec WorkingDirectory="$(MSBuildProjectDirectory)/../.." Command="npm run check:sample" />
+  </Target>
+</Project>

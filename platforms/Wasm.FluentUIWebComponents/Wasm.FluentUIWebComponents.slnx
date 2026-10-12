@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="src/Wasm.FluentUIWebComponents/Wasm.FluentUIWebComponents.csproj" />
+  <Project Path="samples/BrowserSample/BrowserSample.csproj" />
+</Solution>

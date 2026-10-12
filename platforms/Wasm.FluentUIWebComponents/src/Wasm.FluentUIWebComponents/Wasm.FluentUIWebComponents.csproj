@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>Microsoft.Maui.Platforms.Wasm.FluentUIWebComponents</AssemblyName>
+    <RootNamespace>Microsoft.Maui.Platforms.Wasm.FluentUIWebComponents</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Maui.Controls" />
+    <!-- Use the matching NativeAOT LLVM interop generator, not the SDK's Mono generator. -->
+    <PackageReference Include="Microsoft.DotNet.ILCompiler.LLVM" PrivateAssets="all" />
+    <Content Include="wwwroot/maui-browser.js" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" TargetPath="maui-browser.js" />
+    <Content Include="wwwroot/maui-browser.d.ts" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" TargetPath="maui-browser.d.ts" />
+    <Content Include="wwwroot/dotnet.d.ts" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" TargetPath="dotnet.d.ts" />
+  </ItemGroup>
+  <Target Name="BuildBrowserAssets" BeforeTargets="PrepareForBuild" Condition="'$(DesignTimeBuild)' != 'true'">
+    <Exec WorkingDirectory="$(MSBuildProjectDirectory)/../.." Command="npm run build"
+          EnvironmentVariables="MAUI_BROWSER_PROJECT_ASSETS=$(ProjectAssetsFile);DOTNET_DECLARATIONS=" />
+  </Target>
+</Project>
