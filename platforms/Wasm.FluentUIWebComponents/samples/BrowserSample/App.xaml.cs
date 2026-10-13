@@ -11,6 +11,11 @@ public partial class App : Application
     }
     protected override Window CreateWindow(IActivationState? activationState)
     {
-        return new(new MainPage());
+        var window = new Window(new MainPage());
+        window.Destroying += (_, _) =>
+        {
+            SampleDiagnostics.Dispose();
+        };
+        return window;
     }
 }

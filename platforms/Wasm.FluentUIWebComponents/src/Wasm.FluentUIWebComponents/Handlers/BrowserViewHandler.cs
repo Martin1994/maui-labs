@@ -20,11 +20,7 @@ internal abstract class BrowserViewHandler<TView> : ViewHandler<TView, BrowserEl
         {
             [nameof(IView.AutomationId)] = (h, v) =>
             {
-                Browser.AutomationId(h.PlatformView.Id, v.AutomationId ?? "");
-            },
-            [nameof(IView.IsEnabled)] = (h, v) =>
-            {
-                Browser.Enabled(h.PlatformView.Id, v.IsEnabled);
+                Browser.SetAttribute(h.PlatformView.Id, "data-automation-id", v.AutomationId);
             },
             [nameof(IView.Opacity)] = (h, v) =>
             {

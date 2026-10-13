@@ -1,8 +1,9 @@
 import type { DotnetHostBuilder } from './dotnet.js';
 import type { BrowserApplicationExports, BrowserBridge } from './contracts.js';
 import { resolveBrowserExports } from './contracts.js';
-import { createBridge } from './bridge.js';
+import { DomBrowserBridge } from './bridge.js';
 import { initializeFluent } from './fluent.js';
+import './components/define.js';
 
 /** Owns a running browser application. Repeated disposal is harmless. */
 export interface MauiApplicationHandle {
@@ -59,7 +60,7 @@ export async function startMaui(
         if (!element) {
             throw new Error('MAUI app element was not found');
         }
-        bridge = createBridge(element, getApi, onError);
+        bridge = new DomBrowserBridge(element, getApi, onError);
         await initializeFluent();
         const runtime = await dotnet.withMainAssembly(mainAssembly).create();
         runtime.setModuleImports('maui-browser', bridge.imports);

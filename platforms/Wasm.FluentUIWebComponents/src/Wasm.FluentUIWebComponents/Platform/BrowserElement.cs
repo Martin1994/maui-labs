@@ -3,12 +3,12 @@ using Microsoft.Maui.Graphics;
 
 namespace Microsoft.Maui.Platforms.Wasm.FluentUIWebComponents;
 
-internal sealed class BrowserElement(string kind)
+internal sealed class BrowserElement(string tagName)
 {
     public int Id
     {
         get;
-    } = Browser.Create(kind);
+    } = Browser.Create(tagName);
     public void Style(string name, string value)
     {
         Browser.Style(Id, name, value);
@@ -23,7 +23,7 @@ internal sealed class BrowserElement(string kind)
     }
     public static string Color(Color? color)
     {
-        return color is null ? "inherit" :
+        return color is null ? "" :
             FormattableString.Invariant($"rgba({color.Red * 255},{color.Green * 255},{color.Blue * 255},{color.Alpha})");
     }
 }

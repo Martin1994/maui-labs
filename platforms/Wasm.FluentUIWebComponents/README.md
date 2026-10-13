@@ -55,7 +55,7 @@ Building the backend requires a .NET SDK compatible with the target framework an
 | Component | Current configuration |
 | --- | --- |
 | Compiler host package | The sample explicitly references `runtime.linux-arm64.Microsoft.DotNet.ILCompiler.LLVM` |
-| .NET SDK | `10.0.112`, pinned by [global.json](global.json) |
+| .NET SDK | Stable .NET 10.0 SDK; [global.json](global.json) selects the latest installed 10.0 feature band (`latestFeature`) |
 | MAUI | `10.0.41`, using repository central package management |
 | NativeAOT LLVM compiler/runtime | `10.0.0-rc.1.26357.1` |
 | Emscripten | `3.1.57`, enforced by the current publish helper |
@@ -64,6 +64,8 @@ Building the backend requires a .NET SDK compatible with the target framework an
 NativeAOT LLVM's [compilation guide](https://github.com/dotnet/runtimelab/blob/9954350a58ede8b8eaaeb24112ca4f1e78cc527c/docs/using-nativeaot/compiling.md) includes Windows x64 hosts. The backend is not inherently Linux-only. Building on another host requires selecting the matching compiler host package, providing the corresponding native toolchain, and adapting the helper invocation as needed. Keep compiler and runtime package versions aligned; upstream host support alone is not a guarantee that this sample's unchanged configuration works there.
 
 The application targets `browser-wasm`; browser compatibility is separate from the operating system used to compile it. A complete browser support matrix has not yet been established.
+
+The SDK is not locked to `10.0.112`. SDK selection allows newer stable 10.0 feature bands such as `10.0.401`, but not .NET 11 or preview SDKs. This does not change the pinned NativeAOT LLVM compiler/runtime packages or Emscripten version.
 
 NuGet sources are defined in [NuGet.config](NuGet.config), including the experimental compiler feed. NuGet dependencies use repository central package management; JavaScript dependencies and build tools are pinned in `package-lock.json`.
 
@@ -81,6 +83,26 @@ The publish script installs locked npm dependencies, builds the browser bundle a
 
 For a regular build rather than publish, first run `npm ci --ignore-scripts`, then `MSBuildEnableWorkloadResolver=false dotnet build Wasm.FluentUIWebComponents.slnx -c Release`. The backend project builds its own JS asset and declarations, which are copied into the consuming sample through the project reference.
 
+### Package for static deployment
+
+The **published site directory** can be served or uploaded as-is. No trimming is needed: PDBs, declarations and runtime metadata can remain in the directory. Do not deploy the entire `artifacts` directory, which can also contain logs and other build outputs.
+
+To ZIP the complete site after publishing, run this optional command with the project's .NET SDK:
+
+```bash
+npm run package:site
+```
+
+This invokes the sample's `PackageSite` target using MSBuild's built-in `ZipDirectory` task. It archives **every file** in `artifacts/wwwroot` to `artifacts/BrowserSample-site.zip`, without rebuilding or filtering files. There is no extra language, package dependency or post-publish step. For a collected site or a different output path, specify the properties explicitly:
+
+```bash
+npm run package:site -- -p:SiteDirectory=/path/to/published-site -p:SiteArchive=/path/to/site.zip
+```
+
+`index.html` is at the ZIP root. Keep the archive destination outside the site directory. You can also ZIP or copy the published directory with your usual deployment tools instead of using this target.
+
+Extract/upload the archive contents without changing their relative paths. Use a static host that serves `.js` as JavaScript and `.wasm` as `application/wasm`; no .NET server is required. Root and subdirectory deployments are supported by the relative asset URLs. HTTP gzip/Brotli compression can be enabled independently of ZIP compression. Avoid mixing cached runtime files from different publishes.
+
 ## Browser assets and types
 
 The browser bridge is implemented in TypeScript, with its public entry point in [maui-browser.ts](src/Wasm.FluentUIWebComponents/web/maui-browser.ts). MSBuild invokes the frontend build automatically: TypeScript checks the sources and emits declarations, then esbuild bundles the bridge and Fluent dependencies into a **self-contained ESM module**.
@@ -97,9 +119,26 @@ The sample's `jsconfig.json` resolves source imports against the generated decla
 
 The backend uses explicit internal interop contracts and validates the managed export object. Runtime declarations may describe APIs beyond the subset supported by NativeAOT LLVM; their presence alone does not guarantee runtime support.
 
+### Web Component contract
+
+C# handlers choose the exact HTML tag: Label uses `maui-label`, ScrollView uses `maui-scroll-view`, Button uses the existing `fluent-button`, and ordinary containers use `div`. The bridge no longer translates semantic control kinds into tags or installs control-specific defaults. Custom elements must be registered before creation; the bundle registers the two native components, and Fluent initialization registers its button before managed startup.
+
+The internal interop distinguishes JavaScript **properties** (`textContent`, `disabled`), HTML **attributes** (`data-automation-id`, removed when the value is null), and CSS **styles**. Property writes target existing writable properties rather than creating arbitrary fields. This is a trusted handler interface, not a sandbox for untrusted markup or scripts. Managed code and JS assets must be rebuilt and deployed together after protocol changes.
+
+`maui-label` and `maui-scroll-view` are native Custom Elements, not FAST subclasses. Their shadow roots contain a slot; text and MAUI children remain in light DOM, and the host remains the measure/arrange target. Label owns its wrapping defaults. The ScrollView host itself is the scrolling element, preserving native scroll events and offsets. Detaching and reinserting a component does not destroy its content or managed handle; final release remains the handler/bridge's responsibility.
+
+The label's default foreground consumes Fluent's `--colorNeutralForeground1` token. An explicit MAUI text color overrides that default; clearing it restores the token. Fluent Button continues to use its own token-based styles. This establishes shared token consumption, **not complete app theme support**: startup currently applies the light theme, fixed sample colors do not automatically change, and system-theme tracking, application theme overrides and MAUI `AppThemeBinding` integration are not implemented. A future FAST implementation can preserve the same tag/property/event contract and host behavior without changing interop.
+
 ## Sample
 
 [MainPage.xaml](samples/BrowserSample/MainPage.xaml) demonstrates resources, styles, a responsive technology-card grid, rounded borders, scrolling and ordinary MAUI click events. Increment and Reset update a named Label in code-behind. The buttons retain Fluent's neutral interaction-state colors, while product colors provide deliberate heading emphasis.
+
+The sample footer shows two runtime measurements and a button that opens the [repository](https://github.com/Martin1994/maui-labs/tree/fluent-web/platforms/Wasm.FluentUIWebComponents) in a new tab:
+
+- **Startup:** elapsed browser navigation time at the frame following the first MAUI layout. This includes loading and Wasm initialization, unlike a stopwatch started in C# `Main`. It is a first-render opportunity measurement, not an exact GPU presentation timestamp. Cache, network and background-tab scheduling affect the value; it is recorded once per application startup.
+- **Wasm size:** the uncompressed bytes of `dotnet.native.wasm`, not transfer size or linear memory size. The sample first uses the existing Resource Timing entry's `decodedBodySize`, avoiding a second request. When unavailable, C# counts the decoded HTTP response through a stream after startup timing has finished; that fallback may require another request.
+
+Metric orchestration, formatting and fallback reading live in `SampleDiagnostics.cs`. A small sample-only JS module supplies browser timing/resource information and opens the repository URL; the framework API is unchanged. No file-size constant is generated at build time. If runtime asset URLs are customized, update the sample's measurement URL accordingly.
 
 ## Boundaries and known limitations
 

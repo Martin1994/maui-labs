@@ -7,15 +7,17 @@ internal static partial class Browser
     [JSImport("report", "maui-browser")]
     internal static partial void Report(string message);
     [JSImport("create", "maui-browser")]
-    internal static partial int Create(string kind);
+    internal static partial int Create(string tagName);
     [JSImport("style", "maui-browser")]
     internal static partial void Style(int id, string name, string value);
-    [JSImport("text", "maui-browser")]
-    internal static partial void Text(int id, string value);
-    [JSImport("enabled", "maui-browser")]
-    internal static partial void Enabled(int id, bool value);
-    [JSImport("automationId", "maui-browser")]
-    internal static partial void AutomationId(int id, string value);
+    [JSImport("property", "maui-browser")]
+    internal static partial void SetStringProperty(int id, string name, string? value);
+    [JSImport("property", "maui-browser")]
+    internal static partial void SetBooleanProperty(int id, string name, bool value);
+    [JSImport("property", "maui-browser")]
+    internal static partial void SetNumberProperty(int id, string name, double value);
+    [JSImport("attribute", "maui-browser")]
+    internal static partial void SetAttribute(int id, string name, string? value);
     [JSImport("frame", "maui-browser")]
     internal static partial void Frame(int id, double x, double y, double width, double height);
     [JSImport("measure", "maui-browser")]

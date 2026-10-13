@@ -7,14 +7,16 @@ export interface BrowserApplicationExports {
     Shutdown(): void;
 }
 
+/** Scalar JS properties; attributes and CSS declarations use separate operations. */
+export type BrowserPropertyValue = string | number | boolean | null;
+
 /** Functions registered as the managed Browser class's "maui-browser" imports. */
 export interface BrowserImports {
     report(message: string): void;
-    create(kind: string): number;
+    create(tagName: string): number;
     style(id: number, name: string, value: string): void;
-    text(id: number, value: string): void;
-    enabled(id: number, value: boolean): void;
-    automationId(id: number, value: string): void;
+    property(id: number, name: string, value: BrowserPropertyValue): void;
+    attribute(id: number, name: string, value: string | null): void;
     frame(id: number, x: number, y: number, width: number, height: number): void;
     measure(id: number, width: number, height: number, returnHeight: boolean): number;
     insert(parent: number, child: number, index: number): void;

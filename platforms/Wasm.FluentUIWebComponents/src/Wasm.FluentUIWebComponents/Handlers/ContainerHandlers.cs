@@ -19,7 +19,7 @@ internal sealed class BrowserPageHandler : BrowserViewHandler<IContentView>
     }
     protected override BrowserElement CreatePlatformView()
     {
-        return new("page");
+        return new("div");
     }
 
     private void SetContent()
@@ -107,7 +107,7 @@ internal sealed class BrowserLayoutHandler : BrowserViewHandler<ILayout>, ILayou
     }
     protected override BrowserElement CreatePlatformView()
     {
-        return new("layout");
+        return new("div");
     }
 
     public override void SetVirtualView(IView view)

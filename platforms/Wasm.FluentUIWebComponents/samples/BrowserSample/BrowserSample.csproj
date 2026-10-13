@@ -21,4 +21,12 @@
     <!-- ResolveProjectReferences has already built the library and its declarations. -->
     <Exec WorkingDirectory="$(MSBuildProjectDirectory)/../.." Command="npm run check:sample" />
   </Target>
+  <Target Name="PackageSite">
+    <PropertyGroup>
+      <SiteDirectory Condition="'$(SiteDirectory)' == ''">$(MSBuildProjectDirectory)/../../artifacts/wwwroot</SiteDirectory>
+      <SiteArchive Condition="'$(SiteArchive)' == ''">$(MSBuildProjectDirectory)/../../artifacts/BrowserSample-site.zip</SiteArchive>
+    </PropertyGroup>
+    <MakeDir Directories="$([System.IO.Path]::GetDirectoryName('$(SiteArchive)'))" />
+    <ZipDirectory SourceDirectory="$(SiteDirectory)" DestinationFile="$(SiteArchive)" Overwrite="true" />
+  </Target>
 </Project>

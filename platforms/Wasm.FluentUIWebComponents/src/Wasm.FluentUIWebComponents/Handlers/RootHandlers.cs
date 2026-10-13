@@ -36,7 +36,7 @@ internal sealed class BrowserWindowHandler : ElementHandler<IWindow, BrowserElem
     }
     protected override BrowserElement CreatePlatformElement()
     {
-        return new("window");
+        return new("div");
     }
     protected override void ConnectHandler(BrowserElement platformView)
     {

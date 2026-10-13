@@ -5,7 +5,8 @@
     "type": "module",
     "scripts": {
         "build": "node scripts/build-web.mjs",
-        "check:sample": "tsc --project samples/BrowserSample/jsconfig.json"
+        "check:sample": "tsc --project samples/BrowserSample/jsconfig.json",
+        "package:site": "dotnet msbuild samples/BrowserSample/BrowserSample.csproj -target:PackageSite"
     },
     "dependencies": {
         "@fluentui/tokens": "1.0.0-alpha.24",

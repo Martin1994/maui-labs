@@ -34,7 +34,7 @@ internal sealed class BrowserScrollViewHandler : BrowserViewHandler<IScrollView>
     }
     protected override BrowserElement CreatePlatformView()
     {
-        return new("scroll");
+        return new("maui-scroll-view");
     }
     protected override void ConnectHandler(BrowserElement platformView)
     {

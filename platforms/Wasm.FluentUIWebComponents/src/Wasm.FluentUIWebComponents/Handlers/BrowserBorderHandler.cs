@@ -34,7 +34,7 @@ internal sealed class BrowserBorderHandler : BrowserViewHandler<IBorderView>
     }
     protected override BrowserElement CreatePlatformView()
     {
-        return new("border");
+        return new("div");
     }
     private void SetContent()
     {

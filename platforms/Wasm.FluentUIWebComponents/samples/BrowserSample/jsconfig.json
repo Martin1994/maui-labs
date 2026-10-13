@@ -11,5 +11,5 @@
     "noEmit": true,
     "rootDirs": ["wwwroot", "../../src/Wasm.FluentUIWebComponents/wwwroot"]
   },
-  "include": ["wwwroot/main.js"]
+  "include": ["wwwroot/*.js"]
 }

@@ -77,6 +77,16 @@
                 <Label Text="BrowserSample references a separate backend project. Change MainPage.xaml, publish, and open the result on an ordinary static server."
                        TextColor="{StaticResource MutedColor}" />
             </VerticalStackLayout>
+                 <VerticalStackLayout Spacing="6">
+                  <Label x:Name="StartupLabel" Text="Startup: measuring…" FontSize="13"
+                      TextColor="{StaticResource MutedColor}" AutomationId="startup-time" />
+                  <Label x:Name="WasmSizeLabel" Text="Wasm: measuring…" FontSize="13"
+                      TextColor="{StaticResource MutedColor}" AutomationId="wasm-size" />
+                  <Label Text="Navigation to first MAUI frame opportunity · Wasm size before HTTP compression"
+                      FontSize="12" TextColor="{StaticResource MutedColor}" />
+                  <Button Text="View source on GitHub ↗" Clicked="OnRepositoryClicked"
+                       HorizontalOptions="Start" Margin="0,8,0,0" AutomationId="repository-link" />
+                 </VerticalStackLayout>
         </VerticalStackLayout>
     </ScrollView>
 </ContentPage>
