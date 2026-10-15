@@ -4,6 +4,14 @@ namespace Microsoft.Maui.Platforms.Wasm.FluentUIWebComponents;
 
 internal static partial class Browser
 {
+    [JSImport("getSystemTheme", "maui-browser")]
+    internal static partial string GetSystemTheme();
+    [JSImport("getThemeColor", "maui-browser")]
+    internal static partial string GetThemeColor(string token, string theme);
+    [JSImport("startThemeTracking", "maui-browser")]
+    internal static partial string StartThemeTracking();
+    [JSImport("applyTheme", "maui-browser")]
+    internal static partial void ApplyTheme(string theme);
     [JSImport("report", "maui-browser")]
     internal static partial void Report(string message);
     [JSImport("create", "maui-browser")]

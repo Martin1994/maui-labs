@@ -1,9 +1,13 @@
+/** Effective theme on the wire; MAUI resolves the user's System preference. */
+export type BrowserThemeName = 'light' | 'dark';
+
 /** Keep this private contract in sync with the managed BrowserApplication JSExports. */
 export interface BrowserApplicationExports {
     LayoutTick(width: number, height: number): void;
     OnClick(id: number): void;
     OnScroll(id: number, x: number, y: number): void;
     RunScheduled(id: number): void;
+    OnSystemThemeChanged(theme: BrowserThemeName): void;
     Shutdown(): void;
 }
 
@@ -13,6 +17,10 @@ export type BrowserPropertyValue = string | number | boolean | null;
 /** Functions registered as the managed Browser class's "maui-browser" imports. */
 export interface BrowserImports {
     report(message: string): void;
+    getSystemTheme(): BrowserThemeName;
+    getThemeColor(token: string, theme: BrowserThemeName): string;
+    startThemeTracking(): BrowserThemeName;
+    applyTheme(theme: BrowserThemeName): void;
     create(tagName: string): number;
     style(id: number, name: string, value: string): void;
     property(id: number, name: string, value: BrowserPropertyValue): void;
@@ -43,7 +51,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function assertBrowserExports(value: unknown): asserts value is BrowserApplicationExports {
-    const methods = ['LayoutTick', 'OnClick', 'OnScroll', 'RunScheduled', 'Shutdown'] as const;
+    const methods = ['LayoutTick', 'OnClick', 'OnScroll', 'RunScheduled', 'OnSystemThemeChanged', 'Shutdown'] as const;
     if (!isRecord(value) || !methods.every(name => {
         return typeof value[name] === 'function';
     })) {

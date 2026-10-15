@@ -1,4 +1,5 @@
 using System.Globalization;
+using Microsoft.Maui.ApplicationModel;
 using Microsoft.Maui.Controls;
 
 namespace FluentBrowserSample;
@@ -8,9 +9,71 @@ public partial class MainPage : ContentPage
     private int _count;
     private int _technologyColumns = 2;
     private bool _diagnosticsStarted;
+    private Application? _themeApplication;
     public MainPage()
     {
         InitializeComponent();
+        UpdateThemeStatus();
+    }
+
+    protected override void OnAppearing()
+    {
+        base.OnAppearing();
+        if (_themeApplication is null && Application.Current is { } app)
+        {
+            _themeApplication = app;
+            app.RequestedThemeChanged += OnRequestedThemeChanged;
+        }
+        UpdateThemeStatus();
+    }
+
+    protected override void OnDisappearing()
+    {
+        if (_themeApplication is { } app)
+        {
+            app.RequestedThemeChanged -= OnRequestedThemeChanged;
+            _themeApplication = null;
+        }
+        base.OnDisappearing();
+    }
+
+    private void OnRequestedThemeChanged(object? sender, AppThemeChangedEventArgs e)
+    {
+        UpdateThemeStatus();
+    }
+
+    private void UpdateThemeStatus()
+    {
+        if (Application.Current is { } app)
+        {
+            string preference = app.UserAppTheme == AppTheme.Unspecified ? $"System ({app.RequestedTheme})" : app.RequestedTheme.ToString();
+            ThemeStatusLabel.Text = $"Theme: {preference}";
+        }
+    }
+
+    private void SetTheme(AppTheme theme)
+    {
+        if (Application.Current is { } app)
+        {
+            app.UserAppTheme = theme;
+            // Same-effective-theme preference changes do not raise the theme event.
+            UpdateThemeStatus();
+        }
+    }
+
+    private void OnSystemThemeClicked(object? sender, EventArgs e)
+    {
+        SetTheme(AppTheme.Unspecified);
+    }
+
+    private void OnLightThemeClicked(object? sender, EventArgs e)
+    {
+        SetTheme(AppTheme.Light);
+    }
+
+    private void OnDarkThemeClicked(object? sender, EventArgs e)
+    {
+        SetTheme(AppTheme.Dark);
     }
 
     protected override void OnSizeAllocated(double width, double height)
@@ -27,6 +90,23 @@ public partial class MainPage : ContentPage
             return;
         }
         _technologyColumns = columns;
+        // Use the same breakpoint as the cards: inline header on wide screens,
+        // stacked rows on narrow screens, with the selector right-aligned in both.
+        bool wide = columns == 4;
+        HeaderGrid.ColumnDefinitions.Clear();
+        HeaderGrid.RowDefinitions.Clear();
+        HeaderGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Star });
+        HeaderGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        if (wide)
+        {
+            HeaderGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        }
+        else
+        {
+            HeaderGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        }
+        Grid.SetColumn(ThemeSelector, wide ? 1 : 0);
+        Grid.SetRow(ThemeSelector, wide ? 0 : 1);
         TechnologyGrid.ColumnDefinitions.Clear();
         TechnologyGrid.RowDefinitions.Clear();
         for (int i = 0; i < columns; i++)

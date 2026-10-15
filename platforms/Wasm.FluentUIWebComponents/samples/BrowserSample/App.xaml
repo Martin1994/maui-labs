@@ -1,20 +1,23 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <Application xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:fluent="clr-namespace:Microsoft.Maui.Platforms.Wasm.FluentUIWebComponents;assembly=Microsoft.Maui.Platforms.Wasm.FluentUIWebComponents"
              x:Class="FluentBrowserSample.App">
     <Application.Resources>
         <ResourceDictionary>
-            <Color x:Key="BrandColor">#0F6CBD</Color>
+            <ResourceDictionary.MergedDictionaries>
+                <fluent:FluentThemeResources />
+            </ResourceDictionary.MergedDictionaries>
+            <!-- App-owned branding remains independent of the Fluent palette. -->
             <Color x:Key="DotNetBrandColor">#512BD4</Color>
-            <!-- Fluent webLightTheme aliases: foreground1/3, background3/1, stroke2. -->
-            <Color x:Key="NeutralForegroundColor">#242424</Color>
-            <Color x:Key="MutedColor">#616161</Color>
-            <Color x:Key="CanvasColor">#F5F5F5</Color>
-            <Color x:Key="SurfaceColor">#FFFFFF</Color>
-            <Color x:Key="StrokeColor">#E0E0E0</Color>
+            <Color x:Key="DotNetBrandDarkColor">#AC99EA</Color>
             <Style TargetType="Label">
-                <Setter Property="TextColor" Value="{StaticResource NeutralForegroundColor}" />
+                <Setter Property="TextColor" Value="{DynamicResource Fluent.ForegroundColor}" />
                 <Setter Property="FontSize" Value="16" />
+            </Style>
+            <Style TargetType="Border">
+                <Setter Property="BackgroundColor" Value="{DynamicResource Fluent.SurfaceColor}" />
+                <Setter Property="Stroke" Value="{DynamicResource Fluent.StrokeColor}" />
             </Style>
         </ResourceDictionary>
     </Application.Resources>

@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices.JavaScript;
 using System.Runtime.Versioning;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Maui.ApplicationModel;
 using Microsoft.Maui.Dispatching;
 using Microsoft.Maui.Graphics;
 using Microsoft.Maui.Hosting;
@@ -16,6 +17,7 @@ public sealed partial class BrowserApplication : IPlatformApplication, IDisposab
     private MauiApp? _mauiApp;
     private IServiceScope? _scope;
     private IApplication? _application;
+    private BrowserAppInfo? _appInfo;
     private IWindow? _window;
     private IElementHandler? _applicationHandler;
     private IElementHandler? _windowHandler;
@@ -80,6 +82,8 @@ public sealed partial class BrowserApplication : IPlatformApplication, IDisposab
         DispatcherProvider.SetCurrent(host.Dispatcher);
         try
         {
+            // Must precede Application construction and initial XAML theme bindings.
+            host._appInfo = BrowserAppInfo.Install(BrowserTheme.ToAppTheme(Browser.GetSystemTheme()));
             host._mauiApp = createApp();
             host._application = host.Services.GetRequiredService<IApplication>();
             host._applicationHandler = Attach(host.Application, new MauiContext(host.Services));
@@ -91,6 +95,7 @@ public sealed partial class BrowserApplication : IPlatformApplication, IDisposab
             host._window.Created();
             host._activated = true;
             host._window.Activated();
+            host.UpdateSystemTheme(Browser.StartThemeTracking());
             host.RequestLayout();
             return 0;
         }
@@ -100,6 +105,28 @@ public sealed partial class BrowserApplication : IPlatformApplication, IDisposab
             host.Dispose();
             return 1;
         }
+    }
+
+    internal void ApplyTheme(AppTheme userTheme)
+    {
+        if (_closed)
+        {
+            return;
+        }
+        var effectiveTheme = userTheme == AppTheme.Unspecified ? _appInfo!.RequestedTheme : userTheme;
+        Browser.ApplyTheme(BrowserTheme.FromAppTheme(effectiveTheme));
+    }
+
+    private void UpdateSystemTheme(string theme)
+    {
+        if (_closed || _appInfo is null || _application is null)
+        {
+            return;
+        }
+        _appInfo.RequestedTheme = BrowserTheme.ToAppTheme(theme);
+        // MAUI updates PlatformAppTheme even under an explicit user override,
+        // then notifies bindings/handler only if the effective theme changes.
+        _application.ThemeChanged();
     }
 
     private static IElementHandler Attach(IElement element, IMauiContext context)
@@ -211,6 +238,14 @@ public sealed partial class BrowserApplication : IPlatformApplication, IDisposab
         });
     }
     [JSExport]
+    public static void OnSystemThemeChanged(string theme)
+    {
+        Boundary(() =>
+        {
+            _current?.UpdateSystemTheme(theme);
+        });
+    }
+    [JSExport]
     public static void Shutdown()
     {
         Boundary(() =>
@@ -263,6 +298,11 @@ public sealed partial class BrowserApplication : IPlatformApplication, IDisposab
         if (_mauiApp is not null)
         {
             Boundary(_mauiApp.Dispose);
+        }
+        if (_appInfo is not null)
+        {
+            Boundary(_appInfo.Dispose);
+            _appInfo = null;
         }
         if (ReferenceEquals(IPlatformApplication.Current, this))
         {

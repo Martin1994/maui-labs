@@ -5,7 +5,15 @@ namespace Microsoft.Maui.Platforms.Wasm.FluentUIWebComponents;
 
 internal sealed class BrowserApplicationHandler : ElementHandler<IApplication, BrowserApplication>
 {
-    public BrowserApplicationHandler() : base(new PropertyMapper<IApplication, BrowserApplicationHandler>())
+    private static readonly IPropertyMapper<IApplication, BrowserApplicationHandler> Properties = new PropertyMapper<IApplication, BrowserApplicationHandler>
+    {
+        [nameof(IApplication.UserAppTheme)] = (h, v) =>
+        {
+            h.PlatformView.ApplyTheme(v.UserAppTheme);
+        },
+    };
+
+    public BrowserApplicationHandler() : base(Properties)
     {
     }
     protected override BrowserApplication CreatePlatformElement()

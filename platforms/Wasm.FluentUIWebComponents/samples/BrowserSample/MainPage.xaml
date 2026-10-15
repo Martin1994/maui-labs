@@ -2,61 +2,77 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="FluentBrowserSample.MainPage"
-             BackgroundColor="{StaticResource CanvasColor}">
+             AutomationId="main-page"
+             BackgroundColor="{DynamicResource Fluent.CanvasColor}">
     <ScrollView AutomationId="page-scroll">
         <VerticalStackLayout Padding="28,36" Spacing="24" MaximumWidthRequest="1040"
                              HorizontalOptions="Center">
-            <VerticalStackLayout Spacing="4">
-                <Label Text="MAUI LABS / FLUENT WEB COMPONENTS" FontSize="12" FontAttributes="Bold"
-                       TextColor="{StaticResource MutedColor}" />
-                <Label Text="Experimental backend preview" FontSize="12" TextColor="{StaticResource MutedColor}" />
-            </VerticalStackLayout>
+            <Grid x:Name="HeaderGrid" ColumnDefinitions="*" RowDefinitions="Auto,Auto"
+                  ColumnSpacing="24" RowSpacing="12" AutomationId="page-header">
+                <VerticalStackLayout Spacing="4" VerticalOptions="Start" AutomationId="header-title">
+                    <Label Text="MAUI LABS / FLUENT WEB COMPONENTS" FontSize="12" FontAttributes="Bold"
+                              TextColor="{DynamicResource Fluent.MutedColor}" />
+                    <Label Text="Experimental backend preview" FontSize="12"
+                              TextColor="{DynamicResource Fluent.MutedColor}" />
+                </VerticalStackLayout>
+                <VerticalStackLayout x:Name="ThemeSelector" Grid.Row="1" Spacing="8"
+                                     HorizontalOptions="End" VerticalOptions="Start" AutomationId="theme-selector">
+                    <HorizontalStackLayout Spacing="8">
+                        <Button Text="System" Clicked="OnSystemThemeClicked" AutomationId="theme-system" />
+                        <Button Text="Light" Clicked="OnLightThemeClicked" AutomationId="theme-light" />
+                        <Button Text="Dark" Clicked="OnDarkThemeClicked" AutomationId="theme-dark" />
+                    </HorizontalStackLayout>
+                    <Label x:Name="ThemeStatusLabel" FontSize="12" AutomationId="theme-status"
+                           HorizontalTextAlignment="End"
+                              TextColor="{DynamicResource Fluent.MutedColor}" />
+                </VerticalStackLayout>
+            </Grid>
             <VerticalStackLayout Spacing="12">
                 <Label Text="Written in XAML.&#10;Running in your browser." FontSize="40" FontAttributes="Bold"
-                       TextColor="{StaticResource BrandColor}" />
+                      TextColor="{DynamicResource Fluent.BrandForegroundColor}" />
                 <Label Text="A familiar way to build something new. This entire page is a MAUI app — compiled to WebAssembly, rendered with native web elements."
-                       TextColor="{StaticResource MutedColor}" />
+                      TextColor="{DynamicResource Fluent.MutedColor}" />
             </VerticalStackLayout>
 
                         <Grid x:Name="TechnologyGrid" ColumnDefinitions="*,*" RowDefinitions="Auto,Auto"
                                     ColumnSpacing="12" RowSpacing="12">
-                                <Border Padding="18" BackgroundColor="{StaticResource SurfaceColor}"
-                                                Stroke="{StaticResource StrokeColor}" StrokeShape="RoundRectangle 12">
+                                <Border Padding="18" StrokeShape="RoundRectangle 12">
                     <VerticalStackLayout Spacing="8">
                         <Label Text="XAML" FontSize="22" FontAttributes="Bold" />
-                        <Label Text="Defines the page" FontSize="13" TextColor="{StaticResource MutedColor}" />
+                           <Label Text="Defines the page" FontSize="13"
+                               TextColor="{DynamicResource Fluent.MutedColor}" />
                     </VerticalStackLayout>
                 </Border>
-                <Border Grid.Column="1" Padding="18" BackgroundColor="{StaticResource SurfaceColor}"
-                        Stroke="{StaticResource StrokeColor}" StrokeShape="RoundRectangle 12">
+                <Border Grid.Column="1" Padding="18" StrokeShape="RoundRectangle 12">
                     <VerticalStackLayout Spacing="8">
                         <Label Text="MAUI" FontSize="22" FontAttributes="Bold" />
-                        <Label Text="Owns layout and events" FontSize="13" TextColor="{StaticResource MutedColor}" />
+                           <Label Text="Owns layout and events" FontSize="13"
+                               TextColor="{DynamicResource Fluent.MutedColor}" />
                     </VerticalStackLayout>
                 </Border>
-                <Border Grid.Row="1" Padding="18" BackgroundColor="{StaticResource SurfaceColor}"
-                        Stroke="{StaticResource StrokeColor}" StrokeShape="RoundRectangle 12">
+                <Border Grid.Row="1" Padding="18" StrokeShape="RoundRectangle 12">
                     <VerticalStackLayout Spacing="8">
                         <Label Text="Fluent" FontSize="22" FontAttributes="Bold" />
-                        <Label Text="Draws real web controls" FontSize="13" TextColor="{StaticResource MutedColor}" />
+                           <Label Text="Draws real web controls" FontSize="13"
+                               TextColor="{DynamicResource Fluent.MutedColor}" />
                     </VerticalStackLayout>
                 </Border>
-                <Border Grid.Row="1" Grid.Column="1" Padding="18" BackgroundColor="{StaticResource SurfaceColor}"
-                        Stroke="{StaticResource StrokeColor}" StrokeShape="RoundRectangle 12" AutomationId="nativeaot-card">
+                <Border Grid.Row="1" Grid.Column="1" Padding="18"
+                    StrokeShape="RoundRectangle 12" AutomationId="nativeaot-card">
                     <VerticalStackLayout Spacing="8">
                         <Label Text="NativeAOT" FontSize="22" FontAttributes="Bold" />
-                        <Label Text="LLVM compilation to WebAssembly" FontSize="13" TextColor="{StaticResource MutedColor}" />
+                           <Label Text="LLVM compilation to WebAssembly" FontSize="13"
+                               TextColor="{DynamicResource Fluent.MutedColor}" />
                     </VerticalStackLayout>
                 </Border>
             </Grid>
 
-            <Border Padding="24" BackgroundColor="{StaticResource SurfaceColor}"
-                    Stroke="{StaticResource StrokeColor}" StrokeShape="RoundRectangle 16">
+                <Border Padding="24" StrokeShape="RoundRectangle 16">
                 <VerticalStackLayout Spacing="18">
                     <HorizontalStackLayout Spacing="0">
                         <Label Text="Events stay in" FontSize="22" FontAttributes="Bold" />
                         <Label Text=".NET" FontSize="22" FontAttributes="Bold" Margin="6,0,0,0"
-                               TextColor="{StaticResource DotNetBrandColor}" />
+                               TextColor="{AppThemeBinding Light={StaticResource DotNetBrandColor}, Dark={StaticResource DotNetBrandDarkColor}}" />
                         <Label Text="." FontSize="22" FontAttributes="Bold" />
                     </HorizontalStackLayout>
                     <Label x:Name="CounterLabel" Text="Clicked 0 times" FontSize="36" FontAttributes="Bold"
@@ -68,25 +84,25 @@
                         <Button Text="Reset" Clicked="OnResetClicked" AutomationId="reset-button" />
                     </HorizontalStackLayout>
                     <Label Text="The buttons use MAUI's normal Clicked event. The handlers update a named Label — no JavaScript in the page's code-behind."
-                           FontSize="14" TextColor="{StaticResource MutedColor}" />
+                              FontSize="14" TextColor="{DynamicResource Fluent.MutedColor}" />
                 </VerticalStackLayout>
             </Border>
 
             <VerticalStackLayout Spacing="8">
                 <Label Text="One framework. Your application." FontSize="22" FontAttributes="Bold" />
                 <Label Text="BrowserSample references a separate backend project. Change MainPage.xaml, publish, and open the result on an ordinary static server."
-                       TextColor="{StaticResource MutedColor}" />
+                      TextColor="{DynamicResource Fluent.MutedColor}" />
             </VerticalStackLayout>
-                 <VerticalStackLayout Spacing="6">
-                  <Label x:Name="StartupLabel" Text="Startup: measuring…" FontSize="13"
-                      TextColor="{StaticResource MutedColor}" AutomationId="startup-time" />
-                  <Label x:Name="WasmSizeLabel" Text="Wasm: measuring…" FontSize="13"
-                      TextColor="{StaticResource MutedColor}" AutomationId="wasm-size" />
-                  <Label Text="Navigation to first MAUI frame opportunity · Wasm size before HTTP compression"
-                      FontSize="12" TextColor="{StaticResource MutedColor}" />
-                  <Button Text="View source on GitHub ↗" Clicked="OnRepositoryClicked"
-                       HorizontalOptions="Start" Margin="0,8,0,0" AutomationId="repository-link" />
-                 </VerticalStackLayout>
+            <VerticalStackLayout Spacing="6">
+                <Label x:Name="StartupLabel" Text="Startup: measuring…" FontSize="13"
+                      TextColor="{DynamicResource Fluent.MutedColor}" AutomationId="startup-time" />
+                <Label x:Name="WasmSizeLabel" Text="Wasm: measuring…" FontSize="13"
+                      TextColor="{DynamicResource Fluent.MutedColor}" AutomationId="wasm-size" />
+                <Label Text="Navigation to first MAUI frame opportunity · Wasm size before HTTP compression"
+                      FontSize="12" TextColor="{DynamicResource Fluent.MutedColor}" />
+                <Button Text="View source on GitHub ↗" Clicked="OnRepositoryClicked"
+                        HorizontalOptions="Start" Margin="0,8,0,0" AutomationId="repository-link" />
+            </VerticalStackLayout>
         </VerticalStackLayout>
     </ScrollView>
 </ContentPage>

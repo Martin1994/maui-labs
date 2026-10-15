@@ -1,4 +1,5 @@
 import type { BrowserApplicationExports, BrowserBridge, BrowserImports, BrowserPropertyValue } from './contracts.js';
+import { BrowserTheme } from './theme.js';
 
 // DOM nodes and listeners stay JS-owned; MAUI computes container frames.
 export class DomBrowserBridge implements BrowserBridge {
@@ -7,6 +8,7 @@ export class DomBrowserBridge implements BrowserBridge {
     readonly #viewport: HTMLElement;
     readonly #getApi: () => BrowserApplicationExports;
     readonly #onError: (message: string) => void;
+    readonly #theme: BrowserTheme;
     readonly #elements = new Map<number, HTMLElement>();
     readonly #clicks = new Map<number, EventListener>();
     readonly #scrolls = new Map<number, EventListener>();
@@ -25,11 +27,20 @@ export class DomBrowserBridge implements BrowserBridge {
         this.#viewport = viewport;
         this.#getApi = getApi;
         this.#onError = onError;
+        this.#theme = new BrowserTheme(viewport, theme => {
+            this.#invoke(() => {
+            this.#getApi().OnSystemThemeChanged(theme);
+            });
+        });
 
         // Interop may invoke these as detached functions. Bind once, and expose
         // only the import contract rather than the class instance/prototype.
         this.imports = {
             report: this.#report.bind(this),
+            getSystemTheme: this.#theme.getSystemTheme.bind(this.#theme),
+            getThemeColor: this.#theme.getColor.bind(this.#theme),
+            startThemeTracking: this.#theme.start.bind(this.#theme),
+            applyTheme: this.#theme.apply.bind(this.#theme),
             create: this.#create.bind(this),
             style: this.#style.bind(this),
             property: this.#property.bind(this),
@@ -109,6 +120,7 @@ export class DomBrowserBridge implements BrowserBridge {
 
     #stop(): void {
         this.#stopped = true;
+        this.#theme.dispose();
         if (this.#mountedId) {
             this.#unmount(this.#mountedId);
         }
