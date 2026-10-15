@@ -1,19 +1,26 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd "$(dirname "$0")/.."
-: "${EMSDK:?Set EMSDK to your Emscripten 3.1.57 installation}"
-export EMSDK MSBuildEnableWorkloadResolver=false
-source "$EMSDK/emsdk_env.sh"
+export MSBuildEnableWorkloadResolver=false
+# Either use an already initialized toolchain or load the explicitly configured SDK.
+if [[ -n "${EMSDK:-}" && -f "$EMSDK/emsdk_env.sh" ]]; then
+    source "$EMSDK/emsdk_env.sh"
+fi
+if ! command -v emcc >/dev/null 2>&1; then
+    echo 'Initialize Emscripten 3.1.57, or set EMSDK to its installation directory.' >&2
+    exit 1
+fi
 version=$(emcc --version)
-[[ "$version" == *" 3.1.57 ("* ]] || { echo 'Emscripten 3.1.57 is required.' >&2; exit 1; }
+if [[ "$version" != *" 3.1.57 ("* ]]; then
+    echo 'Emscripten 3.1.57 is required.' >&2
+    exit 1
+fi
 mkdir -p artifacts
 run=$(date -u +%Y%m%dT%H%M%SZ)
 {
     dotnet --version
     emcc --version
     npm ci --ignore-scripts
-    dotnet publish samples/BrowserSample/BrowserSample.csproj -c Release -r browser-wasm -p:RestoreLockedMode=true \
-        -bl:"artifacts/publish-$run.binlog" -o artifacts/wwwroot "$@" \
-        -p:EnableTrimAnalyzer=true -p:EnableAotAnalyzer=true \
-        -p:SuppressTrimAnalysisWarnings=false -p:SuppressAotAnalysisWarnings=false -p:TrimmerSingleWarn=false
+    dotnet publish samples/BrowserSample/BrowserSample.csproj -p:RestoreLockedMode=true \
+        -bl:"artifacts/publish-$run.binlog" "$@"
 } 2>&1 | tee "artifacts/publish-$run.log"

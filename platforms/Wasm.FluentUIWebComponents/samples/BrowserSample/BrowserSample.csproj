@@ -8,11 +8,18 @@
     <InvariantGlobalization>true</InvariantGlobalization>
     <DebugType>none</DebugType>
     <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
+    <!-- The compiler runs on the SDK host; browser-wasm remains the app target. -->
+    <NuGetLockFilePath>packages.$(NETCoreSdkPortableRuntimeIdentifier).lock.json</NuGetLockFilePath>
+    <!-- Publish and PackageSite share defaults regardless of the invoking shell. -->
+    <SiteDirectory Condition="'$(SiteDirectory)' == '' and '$(PublishDir)' != ''">$(PublishDir)</SiteDirectory>
+    <SiteDirectory Condition="'$(SiteDirectory)' == ''">$(MSBuildProjectDirectory)/../../artifacts/wwwroot</SiteDirectory>
+    <PublishDir Condition="'$(PublishDir)' == ''">$(SiteDirectory)/</PublishDir>
+    <SiteArchive Condition="'$(SiteArchive)' == ''">$(MSBuildProjectDirectory)/../../artifacts/BrowserSample-site.zip</SiteArchive>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/Wasm.FluentUIWebComponents/Wasm.FluentUIWebComponents.csproj" />
     <PackageReference Include="Microsoft.DotNet.ILCompiler.LLVM" />
-    <PackageReference Include="runtime.linux-arm64.Microsoft.DotNet.ILCompiler.LLVM" />
+    <PackageReference Include="runtime.$(NETCoreSdkPortableRuntimeIdentifier).Microsoft.DotNet.ILCompiler.LLVM" />
     <MauiXaml Include="**/*.xaml" Exclude="$(DefaultItemExcludes)" Inflator="SourceGen" />
     <UnmanagedEntryPointsAssembly Include="Microsoft.Maui.Platforms.Wasm.FluentUIWebComponents" />
     <WasmExtraFilesToDeploy Include="wwwroot/*" />
@@ -22,10 +29,8 @@
     <Exec WorkingDirectory="$(MSBuildProjectDirectory)/../.." Command="npm run check:sample" />
   </Target>
   <Target Name="PackageSite">
-    <PropertyGroup>
-      <SiteDirectory Condition="'$(SiteDirectory)' == ''">$(MSBuildProjectDirectory)/../../artifacts/wwwroot</SiteDirectory>
-      <SiteArchive Condition="'$(SiteArchive)' == ''">$(MSBuildProjectDirectory)/../../artifacts/BrowserSample-site.zip</SiteArchive>
-    </PropertyGroup>
+    <Error Condition="!Exists('$(SiteDirectory)')"
+           Text="Published site not found at '$(SiteDirectory)'. Publish BrowserSample first, or set SiteDirectory to an existing collected site." />
     <MakeDir Directories="$([System.IO.Path]::GetDirectoryName('$(SiteArchive)'))" />
     <ZipDirectory SourceDirectory="$(SiteDirectory)" DestinationFile="$(SiteArchive)" Overwrite="true" />
   </Target>

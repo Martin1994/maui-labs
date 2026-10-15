@@ -6,6 +6,7 @@
     "scripts": {
         "build": "node scripts/build-web.mjs",
         "check:sample": "tsc --project samples/BrowserSample/jsconfig.json",
+        "publish:site": "dotnet publish samples/BrowserSample/BrowserSample.csproj",
         "package:site": "dotnet msbuild samples/BrowserSample/BrowserSample.csproj -target:PackageSite"
     },
     "dependencies": {

@@ -53,17 +53,38 @@ The source button opens the [backend repository directory](https://github.com/Ma
 
 ## Build and run
 
-See the [backend toolchain configuration](../../README.md#toolchain-configuration) for SDK, MAUI, NativeAOT LLVM and Node versions. This application's project explicitly references `runtime.linux-arm64.Microsoft.DotNet.ILCompiler.LLVM`; its publish helper requires Emscripten **3.1.57**. These describe the configured path, not a claim that all hosts work unchanged. Another compiler host requires the matching package and native toolchain.
+See the [backend toolchain configuration](../../README.md#toolchain-configuration) for SDK, MAUI, NativeAOT LLVM and Node versions. The compiler host package is selected automatically as `runtime.$(NETCoreSdkPortableRuntimeIdentifier).Microsoft.DotNet.ILCompiler.LLVM`, following the upstream NativeAOT LLVM guidance. It uses the **SDK host RID**, not the application's `browser-wasm` target RID. Both compiler package versions remain aligned in Central Package Management.
+
+Use a host for which the pinned NativeAOT LLVM compiler package exists, and initialize its native toolchain, including compatible Emscripten **3.1.57**. Automatic package selection does not add support for an unavailable host such as the current macOS ARM64 configuration. On Windows, initialize the Emscripten environment using its Windows activation script; Bash is not required for the npm/MSBuild commands below.
+
+The sample uses `packages.<SDK-host-RID>.lock.json` so different host compilers do not overwrite one shared lockfile. Lockfiles are included for `linux-arm64`, `linux-x64` and `win-x64`. Restore support does not imply a native publish has been tested on every host. Adding another supported compiler host requires generating/reviewing its lockfile. Locked verification is available with `dotnet restore samples/BrowserSample/BrowserSample.csproj -p:RestoreLockedMode=true`.
 
 Run the following from the **backend directory**, `platforms/Wasm.FluentUIWebComponents` (two directories above this README):
 
 ```bash
-export EMSDK=/path/to/emsdk-3.1.57
-bash scripts/publish.sh
+npm ci --ignore-scripts
+npm run publish:site
+npm run package:site
 node scripts/serve.mjs
 ```
 
-The publish script installs locked npm dependencies, builds the browser assets and publishes this application to `artifacts/wwwroot`. It uses locked NuGet restore and enables trimming/AOT diagnostics. The server binds to `127.0.0.1:8768` with the correct Wasm MIME type. It serves `artifacts/wwwroot`, or the collected site recorded in `artifacts/latest-webroot` when that marker exists. Restart it after selecting new output.
+After the one-time toolchain/npm setup, publishing and packaging need no RID, output-path or other custom parameters. `publish:site` invokes standard `dotnet publish` (Release by default for this .NET 10 project); `package:site` invokes the independent `PackageSite` MSBuild target. The project sets `RuntimeIdentifier=browser-wasm` and shares a default site directory between both operations:
+
+- Published website: `artifacts/wwwroot`.
+- Complete website archive: `artifacts/BrowserSample-site.zip`.
+
+The equivalent direct commands, also without custom properties, are:
+
+```bash
+dotnet publish samples/BrowserSample/BrowserSample.csproj
+dotnet msbuild samples/BrowserSample/BrowserSample.csproj -target:PackageSite
+```
+
+Both are ordinary MSBuild targets. To invoke `Publish` directly through MSBuild, include the standard `-restore` switch on a clean checkout; unlike `dotnet publish`, `dotnet msbuild -target:Publish` does not implicitly restore. Publishing does not automatically ZIP, and packaging does not rebuild or publish.
+
+The optional `bash scripts/publish.sh` helper remains available without arguments on Bash hosts. It installs locked npm dependencies, performs locked NuGet restore, and captures a publish log/binlog. It uses the same project defaults rather than supplying a separate RID or output directory. It accepts an already initialized Emscripten toolchain, or loads `emsdk_env.sh` from the configured `EMSDK` directory. Trimming/AOT diagnostics are enabled by the project configuration for both publish entry points.
+
+The server binds to `127.0.0.1:8768` with the correct Wasm MIME type. It serves `artifacts/wwwroot`, or the collected site recorded in `artifacts/latest-webroot` when that marker exists. Restart it after selecting new output.
 
 For a regular build rather than native publishing, also from the backend directory:
 
@@ -89,6 +110,10 @@ It invokes this project's `PackageSite` target using MSBuild's built-in `ZipDire
 ```bash
 npm run package:site -- -p:SiteDirectory=/path/to/published-site -p:SiteArchive=/path/to/site.zip
 ```
+
+`SiteDirectory` also supplies the default `PublishDir`, so the same override can be used for both publishing and packaging. An explicit `PublishDir` is used as the packaging source when no separate `SiteDirectory` is supplied. Custom paths must be supplied again for a later, independent packaging invocation; the project does not persist command-line overrides.
+
+Cross-machine collection is a separate workflow. If a machine only collects output and has no local `artifacts/wwwroot`, pass that collected site as `SiteDirectory`; `PackageSite` deliberately does not auto-select `artifacts/latest-webroot`. No source-path override is needed on the machine that performed a normal publish.
 
 `index.html` is at the ZIP root. Keep the archive destination outside the source site. You can instead copy or ZIP the published directory using your usual deployment tools.
 
