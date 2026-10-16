@@ -1,5 +1,7 @@
 import type { BrowserApplicationExports, BrowserBridge, BrowserImports, BrowserPropertyValue } from './contracts.js';
 import { BrowserTheme } from './theme.js';
+import { BrowserTextInput } from './input.js';
+import { createInputStyles } from './input.styles.js';
 
 // DOM nodes and listeners stay JS-owned; MAUI computes container frames.
 export class DomBrowserBridge implements BrowserBridge {
@@ -13,11 +15,17 @@ export class DomBrowserBridge implements BrowserBridge {
     readonly #clicks = new Map<number, EventListener>();
     readonly #scrolls = new Map<number, EventListener>();
     readonly #timers = new Map<number, number>();
+    readonly #inputs = new Map<number, BrowserTextInput>();
+    #inputStyles: HTMLStyleElement | undefined;
     #sequence = 0;
     #observer: ResizeObserver | undefined;
     #mountedId = 0;
     #frameId = 0;
     #stopped = false;
+    #tickerFrame = 0;
+    #tickerRunning = false;
+    #lastTick: number | undefined;
+    #tickInterval = 1000 / 60;
 
     constructor(
         viewport: HTMLElement,
@@ -29,13 +37,28 @@ export class DomBrowserBridge implements BrowserBridge {
         this.#onError = onError;
         this.#theme = new BrowserTheme(viewport, theme => {
             this.#invoke(() => {
-            this.#getApi().OnSystemThemeChanged(theme);
+                this.#getApi().OnSystemThemeChanged(theme);
             });
         });
 
         // Interop may invoke these as detached functions. Bind once, and expose
         // only the import contract rather than the class instance/prototype.
         this.imports = {
+            startTicker: this.#startTicker.bind(this),
+            stopTicker: this.#stopTicker.bind(this),
+            subscribeInput: this.#subscribeInput.bind(this),
+            inputValue: (id, value) => {
+                this.#input(id).setValue(value);
+            },
+            inputSelection: (id, start, length) => {
+                this.#input(id).setSelection(start, length);
+            },
+            inputAttribute: (id, name, value) => {
+                this.#input(id).setAttribute(name, value);
+            },
+            inputFocus: (id, focused) => {
+                return this.#input(id).focus(focused);
+            },
             report: this.#report.bind(this),
             getSystemTheme: this.#theme.getSystemTheme.bind(this.#theme),
             getThemeColor: this.#theme.getColor.bind(this.#theme),
@@ -71,6 +94,81 @@ export class DomBrowserBridge implements BrowserBridge {
             throw new Error(`Stale MAUI element handle: ${id}`);
         }
         return element;
+    }
+
+    #input(id: number): BrowserTextInput {
+        this.#get(id);
+        const input = this.#inputs.get(id);
+        if (!input) {
+            throw new Error(`Input is not subscribed: ${id}`);
+        }
+        return input;
+    }
+
+    #startTicker(maxFps: number): void {
+        if (this.#stopped || !Number.isInteger(maxFps) || maxFps <= 0) {
+            throw new Error('Invalid or stopped animation ticker');
+        }
+        this.#stopTicker();
+        this.#tickerRunning = true;
+        this.#tickInterval = 1000 / maxFps;
+        this.#tickerFrame = requestAnimationFrame(this.#tick);
+    }
+
+    readonly #tick = (timestamp: number): void => {
+        this.#tickerFrame = 0;
+        if (!this.#tickerRunning || this.#stopped) {
+            return;
+        }
+        if (this.#lastTick === undefined || timestamp - this.#lastTick >= this.#tickInterval - 0.5) {
+            this.#lastTick = timestamp;
+            this.#invoke(() => {
+                this.#getApi().AnimationTick();
+            });
+        }
+        if (this.#tickerRunning && !this.#tickerFrame) {
+            this.#tickerFrame = requestAnimationFrame(this.#tick);
+        }
+    };
+
+    #stopTicker(): void {
+        this.#tickerRunning = false;
+        cancelAnimationFrame(this.#tickerFrame);
+        this.#tickerFrame = 0;
+        this.#lastTick = undefined;
+    }
+
+    #subscribeInput(id: number): void {
+        if (this.#stopped || this.#inputs.has(id)) {
+            throw new Error('Input subscription is stopped or duplicated');
+        }
+        const input = new BrowserTextInput(this.#get(id), {
+            onText: ({ value, start, length }) => {
+                this.#invoke(() => {
+                    this.#getApi().OnInput(id, value, start, length);
+                });
+            },
+            onFocus: focused => {
+                this.#invoke(() => {
+                    this.#getApi().OnInputFocus(id, focused);
+                });
+            },
+            onSelection: ({ start, length }) => {
+                this.#invoke(() => {
+                    this.#getApi().OnInputSelection(id, start, length);
+                });
+            },
+            onCompleted: () => {
+                this.#invoke(() => {
+                    this.#getApi().OnInputCompleted(id);
+                });
+            },
+        });
+        this.#inputs.set(id, input);
+        if (!this.#inputStyles) {
+            this.#inputStyles = createInputStyles();
+            this.#viewport.append(this.#inputStyles);
+        }
     }
 
     #invoke(action: () => void): void {
@@ -120,6 +218,12 @@ export class DomBrowserBridge implements BrowserBridge {
 
     #stop(): void {
         this.#stopped = true;
+        this.#stopTicker();
+        for (const input of this.#inputs.values()) {
+            input.dispose();
+        }
+        this.#inputStyles?.remove();
+        this.#inputStyles = undefined;
         this.#theme.dispose();
         if (this.#mountedId) {
             this.#unmount(this.#mountedId);
@@ -199,6 +303,7 @@ export class DomBrowserBridge implements BrowserBridge {
     }
 
     #measure(id: number, width: number, height: number, returnHeight: boolean): number {
+        this.#inputs.get(id)?.flush();
         const element = this.#get(id);
         const saved = element.style.cssText;
         try {
@@ -228,6 +333,8 @@ export class DomBrowserBridge implements BrowserBridge {
 
     #release(id: number): void {
         const element = this.#get(id);
+        this.#inputs.get(id)?.dispose();
+        this.#inputs.delete(id);
         this.#unmount(id);
         this.#unsubscribeClick(id);
         const onScroll = this.#scrolls.get(id);

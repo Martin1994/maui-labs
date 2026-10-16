@@ -88,6 +88,65 @@
                 </VerticalStackLayout>
             </Border>
 
+            <Border Padding="24" StrokeShape="RoundRectangle 16">
+                <VerticalStackLayout Spacing="12">
+                    <Label Text="Text input. Native interaction." FontSize="22" FontAttributes="Bold" />
+                    <Label Text="A Fluent input sends text, focus and selection changes to ordinary MAUI events. The buttons below update it from C#."
+                           FontSize="14" TextColor="{DynamicResource Fluent.MutedColor}" />
+                    <Entry x:Name="DemoEntry" Placeholder="Type here — including 中文"
+                           MaxLength="80" IsSpellCheckEnabled="False" ReturnType="Done" SemanticProperties.Description="Text interaction example"
+                           TextChanged="OnEntryTextChanged" Completed="OnEntryCompleted"
+                           Focused="OnEntryFocusChanged" Unfocused="OnEntryFocusChanged"
+                           PropertyChanged="OnEntryPropertyChanged" AutomationId="demo-entry" />
+                    <Label x:Name="InputStatusLabel" Text="Text: (empty)" FontSize="13" AutomationId="input-status" />
+                    <Label x:Name="SelectionStatusLabel" Text="Selection: 0 + 0" FontSize="13" AutomationId="selection-status" />
+                    <Label x:Name="FocusStatusLabel" Text="Focus: False" FontSize="13" AutomationId="focus-status" />
+                    <Label x:Name="CompletedStatusLabel" Text="Completed: 0" FontSize="13" AutomationId="completed-status" />
+                    <HorizontalStackLayout Spacing="8">
+                        <Button Text="Set text" Clicked="OnSetInputClicked" AutomationId="input-set" />
+                        <Button Text="Select" Clicked="OnSelectInputClicked" AutomationId="input-select" />
+                        <Button Text="Clear" Clicked="OnClearInputClicked" AutomationId="input-clear" />
+                    </HorizontalStackLayout>
+                </VerticalStackLayout>
+            </Border>
+
+            <Border Padding="24" StrokeShape="RoundRectangle 16">
+                <VerticalStackLayout Spacing="12">
+                    <Label Text="Animation. Driven by MAUI." FontSize="22" FontAttributes="Bold" />
+                    <Label Text="Fade this panel with MAUI's animation API. The backend supplies browser frames; application code awaits the animation."
+                           FontSize="14" TextColor="{DynamicResource Fluent.MutedColor}" />
+                    <Border x:Name="AnimationPreview" Padding="16" StrokeShape="RoundRectangle 8" AutomationId="animation-preview">
+                        <Label Text="One animation API, a browser-backed ticker." HorizontalTextAlignment="Center" />
+                    </Border>
+                    <Button Text="Animate" Clicked="OnAnimateClicked" HorizontalOptions="Start" AutomationId="animate" />
+                    <Label x:Name="AnimationStatusLabel" Text="Animation: idle" FontSize="13" AutomationId="animation-status" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Border Padding="24" StrokeShape="RoundRectangle 16">
+                <VerticalStackLayout Spacing="12">
+                    <Label Text="Scheduling. On the UI thread." FontSize="22" FontAttributes="Bold" />
+                    <Label Text="A dispatcher timer updates the label five times, then stops. Start it again to restart the sequence."
+                           FontSize="14" TextColor="{DynamicResource Fluent.MutedColor}" />
+                    <Button Text="Start timer" Clicked="OnTimerClicked" HorizontalOptions="Start" AutomationId="timer-start" />
+                    <Label x:Name="TimerStatusLabel" Text="Timer: stopped" FontSize="13" AutomationId="timer-status" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Border Padding="24" StrokeShape="RoundRectangle 16">
+                <VerticalStackLayout Spacing="12">
+                    <Label Text="Layout. Updated at runtime." FontSize="22" FontAttributes="Bold" />
+                    <Label Text="Add, move or remove MAUI views. The layout engine measures the updated content and the backend maintains DOM order."
+                           FontSize="14" TextColor="{DynamicResource Fluent.MutedColor}" />
+                    <HorizontalStackLayout Spacing="8">
+                        <Button Text="Add" Clicked="OnAddItemClicked" AutomationId="item-add" />
+                        <Button Text="Move" Clicked="OnMoveItemClicked" AutomationId="item-move" />
+                        <Button Text="Remove" Clicked="OnRemoveItemClicked" AutomationId="item-remove" />
+                    </HorizontalStackLayout>
+                    <VerticalStackLayout x:Name="DynamicItems" Spacing="4" AutomationId="dynamic-items" />
+                </VerticalStackLayout>
+            </Border>
+
             <VerticalStackLayout Spacing="8">
                 <Label Text="One framework. Your application." FontSize="22" FontAttributes="Bold" />
                 <Label Text="BrowserSample references a separate backend project. Change MainPage.xaml, publish, and open the result on an ordinary static server."

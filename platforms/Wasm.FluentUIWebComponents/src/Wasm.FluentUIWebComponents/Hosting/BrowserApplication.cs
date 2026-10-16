@@ -41,6 +41,10 @@ public sealed partial class BrowserApplication : IPlatformApplication, IDisposab
     {
         get;
     } = new();
+    internal BrowserTicker Ticker
+    {
+        get;
+    } = new();
     internal Dictionary<int, Action> Clicks
     {
         get;
@@ -159,6 +163,10 @@ public sealed partial class BrowserApplication : IPlatformApplication, IDisposab
         if (element.Handler is { PlatformView: not null } handler)
         {
             handler.DisconnectHandler();
+            if (ReferenceEquals(element.Handler, handler))
+            {
+                element.Handler = null;
+            }
         }
     }
     internal void RequestLayout()
@@ -218,12 +226,63 @@ public sealed partial class BrowserApplication : IPlatformApplication, IDisposab
             }
         });
     }
+    private static void WithInput(int id, Action<BrowserEntryHandler> action)
+    {
+        Boundary(() =>
+        {
+            if (_current is { _closed: false } host && host._handlers.TryGetValue(id, out var handler)
+                && handler is BrowserEntryHandler entry)
+            {
+                action(entry);
+            }
+        });
+    }
+    [JSExport]
+    public static void OnInput(int id, string value, int start, int length)
+    {
+        WithInput(id, entry =>
+        {
+            entry.Input(value, start, length);
+        });
+    }
+    [JSExport]
+    public static void OnInputSelection(int id, int start, int length)
+    {
+        WithInput(id, entry =>
+        {
+            entry.Selection(start, length);
+        });
+    }
+    [JSExport]
+    public static void OnInputFocus(int id, bool focused)
+    {
+        WithInput(id, entry =>
+        {
+            entry.Focused(focused);
+        });
+    }
+    [JSExport]
+    public static void OnInputCompleted(int id)
+    {
+        WithInput(id, entry =>
+        {
+            entry.Completed();
+        });
+    }
     [JSExport]
     public static void RunScheduled(int id)
     {
         Boundary(() =>
         {
             _current?.Dispatcher.Run(id);
+        });
+    }
+    [JSExport]
+    public static void AnimationTick()
+    {
+        Boundary(() =>
+        {
+            _current?.Ticker.Tick();
         });
     }
     [JSExport]
@@ -263,6 +322,7 @@ public sealed partial class BrowserApplication : IPlatformApplication, IDisposab
         _closed = true;
         Boundary(Browser.Stop);
         Boundary(Dispatcher.Dispose);
+        Boundary(Ticker.Dispose);
         if (_activated)
         {
             Boundary(() =>

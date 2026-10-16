@@ -19,6 +19,7 @@ public partial class MainPage : ContentPage
     protected override void OnAppearing()
     {
         base.OnAppearing();
+        _animationStopped = false;
         if (_themeApplication is null && Application.Current is { } app)
         {
             _themeApplication = app;
@@ -29,6 +30,8 @@ public partial class MainPage : ContentPage
 
     protected override void OnDisappearing()
     {
+        StopTimer();
+        StopAnimation();
         if (_themeApplication is { } app)
         {
             app.RequestedThemeChanged -= OnRequestedThemeChanged;

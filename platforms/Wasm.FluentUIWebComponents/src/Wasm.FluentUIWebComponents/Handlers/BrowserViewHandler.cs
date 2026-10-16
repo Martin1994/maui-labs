@@ -6,6 +6,12 @@ using Microsoft.Maui.Layouts;
 
 namespace Microsoft.Maui.Platforms.Wasm.FluentUIWebComponents;
 
+/// <summary>Shared MAUI view mapping for numeric-handle browser elements.</summary>
+/// <remarks>
+/// Concrete handlers choose their component. This base maps common CSS properties,
+/// measures intrinsic leaf content at its effective width, and applies MAUI frames
+/// in CSS pixels. It does not implement a second browser layout engine.
+/// </remarks>
 internal abstract class BrowserViewHandler<TView> : ViewHandler<TView, BrowserElement> where TView : class, IView
 {
     protected BrowserApplication Host

@@ -3,9 +3,19 @@ using Microsoft.Maui.Graphics;
 
 namespace Microsoft.Maui.Platforms.Wasm.FluentUIWebComponents;
 
+/// <summary>Renders MAUI Border with a standard <c>div</c> content container.</summary>
+/// <remarks>
+/// An inset shadow paints a solid stroke without adding a second CSS layout inset.
+/// Rounded rectangles use border-radius; MAUI measures and arranges the child.
+/// Other stroke shapes and dash patterns are not implemented.
+/// </remarks>
 internal sealed class BrowserBorderHandler : BrowserViewHandler<IBorderView>
 {
-    private IView? _content;
+    protected override BrowserElement CreatePlatformView()
+    {
+        return new("div");
+    }
+
     private static readonly IPropertyMapper<IBorderView, BrowserBorderHandler> Properties = new PropertyMapper<IBorderView, BrowserBorderHandler>(ViewMapper)
     {
         [nameof(IContentView.Content)] = (h, _) =>
@@ -32,10 +42,7 @@ internal sealed class BrowserBorderHandler : BrowserViewHandler<IBorderView>
     public BrowserBorderHandler() : base(Properties)
     {
     }
-    protected override BrowserElement CreatePlatformView()
-    {
-        return new("div");
-    }
+    private IView? _content;
     private void SetContent()
     {
         var content = VirtualView.PresentedContent;

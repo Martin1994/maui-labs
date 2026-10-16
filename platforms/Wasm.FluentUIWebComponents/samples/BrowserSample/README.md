@@ -7,6 +7,10 @@ An experimental .NET MAUI XAML application using the [Fluent UI Web Components b
 - A normal MAUI application referencing a separate backend project.
 - `App.xaml` resources and styles, a responsive Grid, rounded borders and vertical scrolling.
 - Standard `Clicked` code-behind events: Increment and Reset update a named Label.
+- Text input with MAUI text/focus/selection/Completed events from a real Fluent input.
+- Animation through awaited MAUI opacity transitions on a dedicated panel.
+- Scheduling through a dispatcher timer that updates the UI and stops after five ticks.
+- Dynamic layout through runtime child insertion, movement and removal.
 - System / Light / Dark theme selection, Fluent palette resources and app-owned theme colors.
 - Navigation-based startup timing, uncompressed Wasm size and a source-repository link.
 
@@ -19,10 +23,16 @@ All application UI is defined in [MainPage.xaml](MainPage.xaml). `wwwroot/index.
 | `MauiProgram.cs` / `Program.cs` | MAUI registration and browser-host startup |
 | `App.xaml` | Merged backend palette, application branding and implicit styles |
 | `MainPage.xaml` / `MainPage.xaml.cs` | Page layout, theme selection and ordinary click events |
+| `MainPage.TextInteraction.cs` | Entry events and managed text/selection updates |
+| `MainPage.Animation.cs` | Animation preview and cancellation |
+| `MainPage.Scheduling.cs` | Dispatcher timer ownership and ticks |
+| `MainPage.DynamicLayout.cs` | Runtime child collection changes |
 | `SampleDiagnostics.cs` | Startup/size orchestration and repository navigation |
 | `wwwroot/main.js` / `wwwroot/sample-diagnostics.js` | Bootstrap and the small browser-only diagnostics surface |
 
 The project compiles XAML with MAUI's **SourceGen inflator**. New `.xaml` files are included automatically. It uses code-behind rather than a ViewModel; theme bindings are not evidence of general data-binding compatibility under NativeAOT.
+
+The feature-named partial files keep each page section's state and event handlers together without introducing separate controls or moving application behavior into JS. The main code-behind retains page lifecycle, responsive layout and theme coordination.
 
 At viewport widths of 800 CSS pixels or more, the header places theme selection to the right of the title and the technology cards use four columns. Narrower viewports put theme selection on its own right-aligned row and use two card columns. MAUI computes these layouts; the sample does not implement them in CSS.
 
@@ -41,6 +51,20 @@ The `.NET` wordmark is application-owned branding: `DotNetBrandColor` and `DotNe
 | `AppThemeBinding` | Choose the light/dark brand input when the effective application theme changes |
 
 Resource values may be declared in XAML or inserted into a `ResourceDictionary` in C#. These mechanisms are built into MAUI; the sample registers no custom resource provider. The backend dictionary reads Fluent presets and updates its entries on effective-theme changes. See the [backend color-resource contract](../../README.md#fluent-color-resources) for the keys and ownership rules.
+
+## Feature sections
+
+Each section demonstrates one integration boundary using normal MAUI APIs:
+
+| Section | Try it | Integration demonstrated |
+| --- | --- | --- |
+| Events | Increment / Reset | Native clicks reaching C# event handlers |
+| Text input | Type, Set text, Select, Clear | Text, focus, selection and Completed notifications |
+| Animation | Animate the preview panel | Awaited MAUI animations driven by browser frames |
+| Scheduling | Start/restart the timer | UI dispatcher timer callbacks and stopping |
+| Dynamic layout | Add / Move / Remove | MAUI child collections updating the rendered tree |
+
+These are user-facing examples, not a benchmark or proof of real-IME/cross-browser compatibility.
 
 ## Runtime diagnostics
 

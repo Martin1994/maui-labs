@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Maui.Controls;
+using Microsoft.Maui.Animations;
 using Microsoft.Maui.Dispatching;
 using Microsoft.Maui.Hosting;
 
@@ -15,6 +16,11 @@ public static class MauiAppBuilderExtensions
         builder.Services.AddSingleton(host);
         builder.Services.AddSingleton<IDispatcherProvider>(host.Dispatcher);
         builder.Services.AddSingleton<IDispatcher>(host.Dispatcher);
+        builder.Services.AddSingleton<ITicker>(host.Ticker);
+        builder.Services.AddSingleton<IAnimationManager>(services =>
+        {
+            return new AnimationManager(services.GetRequiredService<ITicker>());
+        });
         builder.ConfigureMauiHandlers(handlers =>
         {
             handlers.AddHandler<Application>(_ =>
@@ -36,6 +42,10 @@ public static class MauiAppBuilderExtensions
             handlers.AddHandler<Label>(_ =>
             {
                 return new BrowserLabelHandler();
+            });
+            handlers.AddHandler<Entry>(_ =>
+            {
+                return new BrowserEntryHandler();
             });
             handlers.AddHandler<Button>(_ =>
             {

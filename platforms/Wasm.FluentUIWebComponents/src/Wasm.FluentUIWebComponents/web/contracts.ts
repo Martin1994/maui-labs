@@ -3,6 +3,11 @@ export type BrowserThemeName = 'light' | 'dark';
 
 /** Keep this private contract in sync with the managed BrowserApplication JSExports. */
 export interface BrowserApplicationExports {
+    AnimationTick(): void;
+    OnInput(id: number, value: string, start: number, length: number): void;
+    OnInputFocus(id: number, focused: boolean): void;
+    OnInputSelection(id: number, start: number, length: number): void;
+    OnInputCompleted(id: number): void;
     LayoutTick(width: number, height: number): void;
     OnClick(id: number): void;
     OnScroll(id: number, x: number, y: number): void;
@@ -16,6 +21,13 @@ export type BrowserPropertyValue = string | number | boolean | null;
 
 /** Functions registered as the managed Browser class's "maui-browser" imports. */
 export interface BrowserImports {
+    startTicker(maxFps: number): void;
+    stopTicker(): void;
+    subscribeInput(id: number): void;
+    inputValue(id: number, value: string): void;
+    inputSelection(id: number, start: number, length: number): void;
+    inputAttribute(id: number, name: string, value: string | null): void;
+    inputFocus(id: number, focused: boolean): boolean;
     report(message: string): void;
     getSystemTheme(): BrowserThemeName;
     getThemeColor(token: string, theme: BrowserThemeName): string;
@@ -51,7 +63,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function assertBrowserExports(value: unknown): asserts value is BrowserApplicationExports {
-    const methods = ['LayoutTick', 'OnClick', 'OnScroll', 'RunScheduled', 'OnSystemThemeChanged', 'Shutdown'] as const;
+    const methods = ['LayoutTick', 'OnClick', 'OnScroll', 'RunScheduled', 'OnSystemThemeChanged',
+        'OnInput', 'OnInputFocus', 'OnInputSelection', 'OnInputCompleted', 'AnimationTick', 'Shutdown'] as const;
     if (!isRecord(value) || !methods.every(name => {
         return typeof value[name] === 'function';
     })) {

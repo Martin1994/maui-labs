@@ -3,10 +3,19 @@ using Microsoft.Maui.Layouts;
 
 namespace Microsoft.Maui.Platforms.Wasm.FluentUIWebComponents;
 
+/// <summary>Maps MAUI ScrollView to the native <c>maui-scroll-view</c> custom element.</summary>
+/// <remarks>
+/// The host itself scrolls; MAUI owns content measurement and arrangement while
+/// native scroll offsets are returned to IScrollView. Only vertical/disabled
+/// scrolling is implemented; programmatic scrolling fails explicitly.
+/// </remarks>
 internal sealed class BrowserScrollViewHandler : BrowserViewHandler<IScrollView>
 {
-    private IView? _content;
-    private Size _desired;
+    protected override BrowserElement CreatePlatformView()
+    {
+        return new("maui-scroll-view");
+    }
+
     private static readonly IPropertyMapper<IScrollView, BrowserScrollViewHandler> Properties = new PropertyMapper<IScrollView, BrowserScrollViewHandler>(ViewMapper)
     {
         [nameof(IContentView.Content)] = (h, _) =>
@@ -32,10 +41,8 @@ internal sealed class BrowserScrollViewHandler : BrowserViewHandler<IScrollView>
     public BrowserScrollViewHandler() : base(Properties, Commands)
     {
     }
-    protected override BrowserElement CreatePlatformView()
-    {
-        return new("maui-scroll-view");
-    }
+    private IView? _content;
+    private Size _desired;
     protected override void ConnectHandler(BrowserElement platformView)
     {
         base.ConnectHandler(platformView);

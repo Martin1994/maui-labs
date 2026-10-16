@@ -2,8 +2,19 @@ using Microsoft.Maui.Handlers;
 
 namespace Microsoft.Maui.Platforms.Wasm.FluentUIWebComponents;
 
+/// <summary>Maps MAUI Button to Fluent's <c>fluent-button</c>.</summary>
+/// <remarks>
+/// Keeps Fluent's neutral theme/state styling unless MAUI supplies explicit colors.
+/// Native clicks synchronously invoke IButton.Clicked, preserving user activation;
+/// disconnecting removes the managed callback and releases the DOM subscription.
+/// </remarks>
 internal sealed class BrowserButtonHandler : BrowserViewHandler<IButton>
 {
+    protected override BrowserElement CreatePlatformView()
+    {
+        return new("fluent-button");
+    }
+
     private static readonly IPropertyMapper<IButton, BrowserButtonHandler> Properties = new PropertyMapper<IButton, BrowserButtonHandler>(ViewMapper)
     {
         [nameof(IView.IsEnabled)] = (h, v) =>
@@ -48,10 +59,6 @@ internal sealed class BrowserButtonHandler : BrowserViewHandler<IButton>
     };
     public BrowserButtonHandler() : base(Properties)
     {
-    }
-    protected override BrowserElement CreatePlatformView()
-    {
-        return new("fluent-button");
     }
     protected override void ConnectHandler(BrowserElement platformView)
     {

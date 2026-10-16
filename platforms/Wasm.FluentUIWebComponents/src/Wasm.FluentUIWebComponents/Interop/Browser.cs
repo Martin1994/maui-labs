@@ -4,6 +4,20 @@ namespace Microsoft.Maui.Platforms.Wasm.FluentUIWebComponents;
 
 internal static partial class Browser
 {
+    [JSImport("startTicker", "maui-browser")]
+    internal static partial void StartTicker(int maxFps);
+    [JSImport("stopTicker", "maui-browser")]
+    internal static partial void StopTicker();
+    [JSImport("subscribeInput", "maui-browser")]
+    internal static partial void SubscribeInput(int id);
+    [JSImport("inputValue", "maui-browser")]
+    internal static partial void SetInputValue(int id, string value);
+    [JSImport("inputSelection", "maui-browser")]
+    internal static partial void SetInputSelection(int id, int start, int length);
+    [JSImport("inputAttribute", "maui-browser")]
+    internal static partial void SetInputAttribute(int id, string name, string? value);
+    [JSImport("inputFocus", "maui-browser")]
+    internal static partial bool FocusInput(int id, bool focused);
     [JSImport("getSystemTheme", "maui-browser")]
     internal static partial string GetSystemTheme();
     [JSImport("getThemeColor", "maui-browser")]

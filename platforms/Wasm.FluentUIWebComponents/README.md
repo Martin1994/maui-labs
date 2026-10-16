@@ -25,17 +25,34 @@ Applications using XAML should configure MAUI's **SourceGen inflator** (`Inflato
 
 ## Current capabilities
 
-- Application and single Window host, real `MauiContext`, scoped window services and lifecycle.
-- ContentPage; shared Layout handler using MAUI's Grid and stack layout algorithms.
-- Label text, wrapping, size/family/weight/italic and horizontal alignment.
-- Real Fluent Button with MAUI `Clicked`, text, color, enabled state and padding.
-- Solid rectangular/rounded Border and padding.
-- Native vertical ScrollView, including offsets and MAUI `Scrolled` notifications.
-- MAUI app themes: browser system preference, `UserAppTheme` overrides, `RequestedThemeChanged`, XAML `AppThemeBinding`, and synchronized Fluent light/dark tokens.
-- Main-thread dispatch and delayed dispatch; pending work is cancelled when the host is disposed.
-- Synchronous DOM leaf measurement; MAUI alone calculates child positions and sizes. Root invalidations are coalesced to a browser frame.
+### Application host and layout
 
-Content is remeasured under its effective width, rather than measuring the last arranged rectangle. Browser coordinates are CSS pixels, not physical pixels multiplied by DPR. Border painting does not add a second layout inset.
+- Application and single Window host, `MauiContext`, scoped services and lifecycle.
+- MAUI owns measurement and arrangement; the browser measures leaf content and applies MAUI frames in CSS pixels.
+- Grid and stack layouts share MAUI's layout algorithms, including dynamic child updates. Root invalidations are coalesced to browser frames.
+
+### Control handlers
+
+Reuse a matching Fluent component first. Custom elements are reserved for behavior that needs a MAUI-specific browser container; ordinary layout containers do not need a new component at all.
+
+| Integration | MAUI control | Browser implementation | Current scope |
+| --- | --- | --- | --- |
+| Direct Fluent mapping | Label | `fluent-text` | Text, wrapping, font and horizontal alignment |
+| Direct Fluent mapping | Button | `fluent-button` | Click, text, enabled state, color and padding |
+| Direct Fluent mapping | Entry | `fluent-text-input` | Text, focus, selection, input state, placeholder and keyboard hints |
+| Custom MAUI component | ScrollView | `maui-scroll-view` | Vertical viewport, offsets and scroll notifications |
+| Standard DOM container | ContentPage, Grid and stacks | `div` | Content ownership and MAUI layout |
+| Standard DOM container | Border | `div` | Solid rectangular/rounded stroke and content padding |
+
+The application/window handlers establish the root and its lifecycle rather than render additional Fluent controls. Individual handler XML documentation describes component mappings and compatibility adaptations; the table does not imply complete MAUI control parity.
+
+### Platform services
+
+- **Themes and resources:** browser system preference, MAUI application overrides and notifications, `AppThemeBinding`, Fluent tokens and dynamic palette resources.
+- **Scheduling:** UI-thread dispatch, delayed work and dispatcher timers with cancellation and shutdown cleanup.
+- **Animation:** a requestAnimationFrame ticker supplied to MAUI's `AnimationManager`; opacity animation is supported by the current view mapping.
+
+These are selected browser platform services, not a complete Essentials implementation. See [limitations](#boundaries-and-known-limitations) for unsupported behavior and validation boundaries.
 
 ## Toolchain configuration
 
@@ -85,13 +102,15 @@ The backend uses explicit internal interop contracts and validates the managed e
 
 ### Web Component contract
 
-C# handlers choose the exact HTML tag: Label uses `maui-label`, ScrollView uses `maui-scroll-view`, Button uses the existing `fluent-button`, and ordinary containers use `div`. The bridge no longer translates semantic control kinds into tags or installs control-specific defaults. Custom elements must be registered before creation; the bundle registers the two native components, and Fluent initialization registers its button before managed startup.
+C# handlers select an already registered tag. A direct mapping such as `fluent-button` reuses Fluent's implementation; a custom element such as `maui-scroll-view` supplies MAUI-specific container behavior where no suitable Fluent component is used. Prefer reuse over recreating an existing control or adding a wrapper solely for naming consistency.
 
 The internal interop distinguishes JavaScript **properties** (`textContent`, `disabled`), HTML **attributes** (`data-automation-id`, removed when the value is null), and CSS **styles**. Property writes target existing writable properties rather than creating arbitrary fields. This is a trusted handler interface, not a sandbox for untrusted markup or scripts. Managed code and JS assets must be rebuilt and deployed together after protocol changes.
 
-`maui-label` and `maui-scroll-view` are native Custom Elements, not FAST subclasses. Their shadow roots contain a slot; text and MAUI children remain in light DOM, and the host remains the measure/arrange target. Label owns its wrapping defaults. The ScrollView host itself is the scrolling element, preserving native scroll events and offsets. Detaching and reinserting a component does not destroy its content or managed handle; final release remains the handler/bridge's responsibility.
+In both cases, MAUI owns layout and the backend owns element lifetime. The bridge manages handles and DOM operations, not a second control-kind mapping. Component-specific input or style adaptations belong beside their handlers; see [BrowserEntryHandler](src/Wasm.FluentUIWebComponents/Handlers/BrowserEntryHandler.cs) for the input policy and the reasons for its adapter.
 
-The label's default foreground consumes Fluent's `--colorNeutralForeground1` token. An explicit MAUI text color overrides that default; clearing it restores the token. Fluent Button continues to use its own token-based styles. A future FAST implementation can preserve the same tag/property/event contract and host behavior without changing interop.
+### Scheduling and animation
+
+`Dispatcher.CreateTimer()` returns an `IDispatcherTimer` with one-shot/repeating behavior, cancellation and restart handling. Changing a running timer's interval restarts its countdown. Active timers are stopped when the dispatcher is disposed. `ITicker` is driven by rAF and supplied to the actual MAUI animation manager, rather than a parallel animation implementation. Browser background throttling still applies: timers are not precision clocks, rAF may pause, and MAUI uses elapsed wall time when animations resume. Worker-thread dispatch and system reduced-motion integration are not provided yet.
 
 ### Application themes
 
@@ -139,7 +158,8 @@ These are backend-specific resources, not a cross-platform MAUI palette. Treat t
 
 - This is a deliberately small control/property surface, not general MAUI compatibility. Other controls and properties may be unsupported.
 - No Shell, navigation stack, full Essentials, embedded font/image pipeline, Resizetizer, hot reload, full graphics, native menus, or multi-window behavior.
-- No `IDispatcherTimer`, animation ticker, worker-thread UI dispatch, Entry/IME or binding compatibility claim yet.
+- No worker-thread UI dispatch or complete Entry/IME/data-binding compatibility claim yet. Timer/ticker wiring does not establish background timing guarantees or full animation-property coverage.
+- Entry does not yet implement clear-button presentation, vertical text alignment, custom keyboard flags, automatic next-field navigation or complete text-transform semantics. Keyboard hints remain browser-dependent; real OS IME, autofill and accessibility behavior require further verification beyond synthetic event tests.
 - ScrollView currently supports vertical user scrolling, not horizontal/both orientations or programmatic `ScrollToAsync`; unsupported requests fail explicitly.
 - Border supports solid rectangular/rounded strokes, not arbitrary shape/dash/gradient rendering. Advanced text formatting, selection, truncation and full button input semantics are not complete.
 - Standard binding infrastructure belongs to MAUI. Support for `AppThemeBinding` and palette `DynamicResource` updates does not establish compatibility for other data-binding scenarios; those need separate NativeAOT verification.

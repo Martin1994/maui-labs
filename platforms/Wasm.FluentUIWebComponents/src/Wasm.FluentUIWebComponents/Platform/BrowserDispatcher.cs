@@ -5,6 +5,7 @@ namespace Microsoft.Maui.Platforms.Wasm.FluentUIWebComponents;
 internal sealed class BrowserDispatcher : IDispatcher, IDispatcherProvider, IDisposable
 {
     private readonly Dictionary<int, Action> _pending = new();
+    private readonly HashSet<BrowserDispatcherTimer> _timers = new();
     private readonly int _threadId = Environment.CurrentManagedThreadId;
     private int _sequence;
     private bool _disposed;
@@ -26,10 +27,15 @@ internal sealed class BrowserDispatcher : IDispatcher, IDispatcherProvider, IDis
     }
     public bool DispatchDelayed(TimeSpan delay, Action action)
     {
+        return Schedule(delay, action) != 0;
+    }
+
+    internal int Schedule(TimeSpan delay, Action action)
+    {
         ArgumentNullException.ThrowIfNull(action);
         if (_disposed)
         {
-            return false;
+            return 0;
         }
         if (IsDispatchRequired)
         {
@@ -46,12 +52,37 @@ internal sealed class BrowserDispatcher : IDispatcher, IDispatcherProvider, IDis
             _pending.Remove(id);
             throw;
         }
-        return true;
+        return id;
     }
 
     public IDispatcherTimer CreateTimer()
     {
-        throw new NotSupportedException("Browser dispatcher timers are not implemented yet.");
+        VerifyAccess();
+        return new BrowserDispatcherTimer(this);
+    }
+    internal void VerifyAccess()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (IsDispatchRequired)
+        {
+            throw new NotSupportedException("The browser backend currently requires one UI thread.");
+        }
+    }
+    internal void TrackTimer(BrowserDispatcherTimer timer)
+    {
+        VerifyAccess();
+        _timers.Add(timer);
+    }
+    internal void UntrackTimer(BrowserDispatcherTimer timer)
+    {
+        _timers.Remove(timer);
+    }
+    internal void Cancel(int id)
+    {
+        if (_pending.Remove(id))
+        {
+            Browser.CancelSchedule(id);
+        }
     }
     public void Run(int id)
     {
@@ -62,6 +93,14 @@ internal sealed class BrowserDispatcher : IDispatcher, IDispatcherProvider, IDis
     }
     public void Dispose()
     {
+        if (_disposed)
+        {
+            return;
+        }
+        foreach (var timer in _timers.ToArray())
+        {
+            timer.Stop();
+        }
         _disposed = true;
         foreach (int id in _pending.Keys)
         {

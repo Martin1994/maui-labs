@@ -3,8 +3,15 @@ using Microsoft.Maui.Handlers;
 
 namespace Microsoft.Maui.Platforms.Wasm.FluentUIWebComponents;
 
+/// <summary>Connects IApplication to the browser host without creating a DOM control.</summary>
+/// <remarks>Maps the effective MAUI theme to Fluent; platform-theme discovery belongs to the host.</remarks>
 internal sealed class BrowserApplicationHandler : ElementHandler<IApplication, BrowserApplication>
 {
+    protected override BrowserApplication CreatePlatformElement()
+    {
+        return MauiContext!.Services.GetRequiredService<BrowserApplication>();
+    }
+
     private static readonly IPropertyMapper<IApplication, BrowserApplicationHandler> Properties = new PropertyMapper<IApplication, BrowserApplicationHandler>
     {
         [nameof(IApplication.UserAppTheme)] = (h, v) =>
@@ -16,14 +23,17 @@ internal sealed class BrowserApplicationHandler : ElementHandler<IApplication, B
     public BrowserApplicationHandler() : base(Properties)
     {
     }
-    protected override BrowserApplication CreatePlatformElement()
-    {
-        return MauiContext!.Services.GetRequiredService<BrowserApplication>();
-    }
 }
 
+/// <summary>Hosts the single MAUI window in a standard root <c>div</c>.</summary>
+/// <remarks>Mounting owns viewport observation; content replacement and shutdown disconnect child handlers.</remarks>
 internal sealed class BrowserWindowHandler : ElementHandler<IWindow, BrowserElement>
 {
+    protected override BrowserElement CreatePlatformElement()
+    {
+        return new("div");
+    }
+
     private IView? _content;
     private BrowserApplication Host
     {
@@ -41,10 +51,6 @@ internal sealed class BrowserWindowHandler : ElementHandler<IWindow, BrowserElem
     };
     public BrowserWindowHandler() : base(Properties)
     {
-    }
-    protected override BrowserElement CreatePlatformElement()
-    {
-        return new("div");
     }
     protected override void ConnectHandler(BrowserElement platformView)
     {

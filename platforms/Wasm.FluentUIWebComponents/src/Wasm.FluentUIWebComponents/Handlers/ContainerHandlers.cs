@@ -4,9 +4,15 @@ using Microsoft.Maui.Layouts;
 
 namespace Microsoft.Maui.Platforms.Wasm.FluentUIWebComponents;
 
+/// <summary>Hosts a MAUI content page in a standard <c>div</c>.</summary>
+/// <remarks>Delegates content measurement/arrangement to MAUI and disconnects replaced content.</remarks>
 internal sealed class BrowserPageHandler : BrowserViewHandler<IContentView>
 {
-    private IView? _content;
+    protected override BrowserElement CreatePlatformView()
+    {
+        return new("div");
+    }
+
     private static readonly IPropertyMapper<IContentView, BrowserPageHandler> Properties = new PropertyMapper<IContentView, BrowserPageHandler>(ViewMapper)
     {
         [nameof(IContentView.Content)] = (h, _) =>
@@ -17,10 +23,7 @@ internal sealed class BrowserPageHandler : BrowserViewHandler<IContentView>
     public BrowserPageHandler() : base(Properties)
     {
     }
-    protected override BrowserElement CreatePlatformView()
-    {
-        return new("div");
-    }
+    private IView? _content;
 
     private void SetContent()
     {
@@ -63,8 +66,18 @@ internal sealed class BrowserPageHandler : BrowserViewHandler<IContentView>
     }
 }
 
+/// <summary>Hosts MAUI layouts, including Grid and stacks, in a standard <c>div</c>.</summary>
+/// <remarks>
+/// Uses MAUI's layout manager, not CSS Grid/Flexbox. Applies constraints before
+/// measuring children, and maps collection updates to child creation/release and DOM order.
+/// </remarks>
 internal sealed class BrowserLayoutHandler : BrowserViewHandler<ILayout>, ILayoutHandler
 {
+    protected override BrowserElement CreatePlatformView()
+    {
+        return new("div");
+    }
+
     private readonly List<IView> _children = new();
     object ILayoutHandler.PlatformView
     {
@@ -77,7 +90,7 @@ internal sealed class BrowserLayoutHandler : BrowserViewHandler<ILayout>, ILayou
     {
         [nameof(ILayoutHandler.Add)] = (h, _, value) =>
         {
-            h.Add((IView)value!);
+            h.Add(((LayoutHandlerUpdate)value!).View);
         },
         [nameof(ILayoutHandler.Insert)] = (h, _, value) =>
         {
@@ -91,7 +104,7 @@ internal sealed class BrowserLayoutHandler : BrowserViewHandler<ILayout>, ILayou
         },
         [nameof(ILayoutHandler.Remove)] = (h, _, value) =>
         {
-            h.Remove((IView)value!);
+            h.Remove(((LayoutHandlerUpdate)value!).View);
         },
         [nameof(ILayoutHandler.Clear)] = (h, _, _) =>
         {
@@ -104,10 +117,6 @@ internal sealed class BrowserLayoutHandler : BrowserViewHandler<ILayout>, ILayou
     };
     public BrowserLayoutHandler() : base(ViewMapper, Commands)
     {
-    }
-    protected override BrowserElement CreatePlatformView()
-    {
-        return new("div");
     }
 
     public override void SetVirtualView(IView view)
