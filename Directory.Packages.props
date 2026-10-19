@@ -44,6 +44,11 @@
     <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="$(MicrosoftCodeAnalysisAnalyzersVersion)" />
   </ItemGroup>
 
+  <ItemGroup Label="FluentWasmCodeGen" Condition="'$(MSBuildProjectName)' == 'Wasm.FluentUIWebComponents.CodeGen'">
+    <PackageVersion Include="Microsoft.CodeAnalysis.Workspaces.MSBuild" Version="$(MicrosoftCodeAnalysisCSharpVersion)" />
+    <PackageVersion Include="Microsoft.Build.Locator" Version="1.7.8" />
+  </ItemGroup>
+
   <!-- DevFlow dependencies (pinned, third party) -->
   <ItemGroup Label="DevFlow">
     <PackageVersion Include="Fizzler" Version="$(FizzlerVersion)" />

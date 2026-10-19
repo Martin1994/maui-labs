@@ -297,7 +297,7 @@ public sealed partial class BrowserApplication : IPlatformApplication, IDisposab
         });
     }
     [JSExport]
-    public static void OnSystemThemeChanged(string theme)
+    public static void OnSystemThemeChanged([JSStringUnion(typeof(BrowserThemeName))] string theme)
     {
         Boundary(() =>
         {

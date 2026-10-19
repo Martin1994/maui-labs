@@ -2,17 +2,39 @@
   <PropertyGroup>
     <AssemblyName>Microsoft.Maui.Platforms.Wasm.FluentUIWebComponents</AssemblyName>
     <RootNamespace>Microsoft.Maui.Platforms.Wasm.FluentUIWebComponents</RootNamespace>
+    <BrowserBuildDirectory>$(MSBuildProjectDirectory)/obj/browser/$(Configuration)/$(TargetFramework)/$(RuntimeIdentifier)</BrowserBuildDirectory>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Maui.Controls" />
     <!-- Use the matching NativeAOT LLVM interop generator, not the SDK's Mono generator. -->
     <PackageReference Include="Microsoft.DotNet.ILCompiler.LLVM" PrivateAssets="all" />
-    <Content Include="wwwroot/maui-browser.js" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" TargetPath="maui-browser.js" />
-    <Content Include="wwwroot/maui-browser.d.ts" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" TargetPath="maui-browser.d.ts" />
-    <Content Include="wwwroot/dotnet.d.ts" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" TargetPath="dotnet.d.ts" />
+    <ProjectReference Include="../../tools/Wasm.FluentUIWebComponents.CodeGen/Wasm.FluentUIWebComponents.CodeGen.csproj"
+                      ReferenceOutputAssembly="false" OutputItemType="BrowserCodeGenerator" Private="false" PrivateAssets="all" />
+    <MauiBrowserAsset Include="$(BrowserBuildDirectory)/wwwroot/maui-browser.js;$(BrowserBuildDirectory)/wwwroot/maui-browser.d.ts;$(BrowserBuildDirectory)/wwwroot/dotnet.d.ts">
+      <TargetPath>%(Filename)%(Extension)</TargetPath>
+    </MauiBrowserAsset>
+    <Content Include="@(MauiBrowserAsset)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest"
+             Pack="true" PackagePath="browser-assets/" />
+    <None Update="buildTransitive/Microsoft.Maui.Platforms.Wasm.FluentUIWebComponents.targets"
+          Pack="true" PackagePath="buildTransitive/Microsoft.Maui.Platforms.Wasm.FluentUIWebComponents.targets" />
   </ItemGroup>
-  <Target Name="BuildBrowserAssets" BeforeTargets="PrepareForBuild" Condition="'$(DesignTimeBuild)' != 'true'">
-    <Exec WorkingDirectory="$(MSBuildProjectDirectory)/../.." Command="npm run build"
-          EnvironmentVariables="MAUI_BROWSER_PROJECT_ASSETS=$(ProjectAssetsFile);DOTNET_DECLARATIONS=" />
+  <!-- MSBuildWorkspace loads the project in design-time mode; it does not run this target recursively. -->
+  <Target Name="GenerateBrowserInterop" DependsOnTargets="ResolveProjectReferences"
+          Condition="'$(DesignTimeBuild)' != 'true'">
+    <PropertyGroup>
+      <BrowserInteropDotNet Condition="'$(DotNetHostPath)' != ''">$(DotNetHostPath)</BrowserInteropDotNet>
+      <BrowserInteropDotNet Condition="'$(BrowserInteropDotNet)' == ''">dotnet</BrowserInteropDotNet>
+    </PropertyGroup>
+    <Exec Command="&quot;$(BrowserInteropDotNet)&quot; &quot;@(BrowserCodeGenerator)&quot; &quot;$(MSBuildProjectFullPath)&quot; &quot;$(MSBuildProjectDirectory)/web/generated/contracts.g.ts&quot; --configuration &quot;$(Configuration)&quot;" />
+    <!-- Shared generated source is intentionally not in configuration-specific FileWrites. -->
   </Target>
+  <Target Name="BuildBrowserAssets" BeforeTargets="CoreCompile" DependsOnTargets="GenerateBrowserInterop"
+          Condition="'$(DesignTimeBuild)' != 'true'">
+    <Exec WorkingDirectory="$(MSBuildProjectDirectory)/../.." Command="npm run build"
+          EnvironmentVariables="MAUI_BROWSER_PROJECT_ASSETS=$(ProjectAssetsFile);DOTNET_DECLARATIONS=;MAUI_BROWSER_INTEROP_GENERATED=1;MAUI_BROWSER_BUILD_DIRECTORY=$(BrowserBuildDirectory)" />
+    <ItemGroup>
+      <FileWrites Include="$(BrowserBuildDirectory)/**/*" />
+    </ItemGroup>
+  </Target>
+  <Target Name="GetMauiBrowserAssets" DependsOnTargets="BuildBrowserAssets" Returns="@(MauiBrowserAsset)" />
 </Project>

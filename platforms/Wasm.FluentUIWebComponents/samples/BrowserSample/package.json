@@ -1,0 +1,20 @@
+{
+    "name": "@maui-fluent-ui-web-component/browser-sample",
+    "version": "0.0.0",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "build": "tsc --project tsconfig.json",
+        "check": "tsc --project tsconfig.json --noEmit",
+        "prepare:browser": "dotnet msbuild BrowserSample.csproj -target:PrepareMauiBrowserAssets -property:Configuration=Release",
+        "build:browser": "dotnet msbuild BrowserSample.csproj -target:BuildBrowserBootstrap -property:Configuration=Release",
+        "publish:site": "dotnet publish BrowserSample.csproj",
+        "package:site": "dotnet msbuild BrowserSample.csproj -target:PackageSite"
+    },
+    "devDependencies": {
+        "typescript": "5.9.3"
+    },
+    "engines": {
+        "node": ">=22"
+    }
+}

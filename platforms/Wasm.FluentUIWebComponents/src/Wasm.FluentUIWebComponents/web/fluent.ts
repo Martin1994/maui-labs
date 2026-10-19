@@ -1,4 +1,5 @@
 // Keep registration side effects internal, so the public .d.ts needs no Fluent/npm dependencies.
+import './components/define.js';
 import '@fluentui/web-components/button/define.js';
 import '@fluentui/web-components/text/define.js';
 import '@fluentui/web-components/text-input/define.js';

@@ -1,13 +1,13 @@
 {
-    "name": "maui-fluent-web-components-backend",
+    "name": "@maui-fluent-ui-web-component/backend",
     "version": "0.0.0",
     "private": true,
     "type": "module",
     "scripts": {
         "build": "node scripts/build-web.mjs",
-        "check:sample": "tsc --project samples/BrowserSample/jsconfig.json",
-        "publish:site": "dotnet publish samples/BrowserSample/BrowserSample.csproj",
-        "package:site": "dotnet msbuild samples/BrowserSample/BrowserSample.csproj -target:PackageSite"
+        "pretest:interop": "dotnet build tools/Wasm.FluentUIWebComponents.CodeGen/Wasm.FluentUIWebComponents.CodeGen.csproj -c Release --nologo",
+        "test:interop": "node --test scripts/test/browser-interop.test.mjs",
+        "test:interop:build": "node --test scripts/test/browser-build.test.mjs"
     },
     "dependencies": {
         "@fluentui/tokens": "1.0.0-alpha.24",

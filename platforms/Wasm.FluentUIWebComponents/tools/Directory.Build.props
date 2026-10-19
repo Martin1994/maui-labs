@@ -1,0 +1,13 @@
+<Project>
+  <!-- Build tools run on the host, not with the backend's browser-wasm defaults. -->
+  <Import Project="../../../eng/Versions.props" />
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <IsShipping>false</IsShipping>
+    <IsPackable>false</IsPackable>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+  </PropertyGroup>
+</Project>

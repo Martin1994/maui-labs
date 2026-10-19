@@ -1,0 +1,11 @@
+**/bin/
+**/obj/
+/artifacts/
+/node_modules/
+
+# Backend assets supplied beside the handwritten TS sources. Do not ignore *.ts.
+/web/*.js
+/web/*.d.ts
+
+# JavaScript emitted by tsc; index.html remains handwritten.
+/wwwroot/*.js

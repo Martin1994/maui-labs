@@ -19,13 +19,15 @@ internal static partial class Browser
     [JSImport("inputFocus", "maui-browser")]
     internal static partial bool FocusInput(int id, bool focused);
     [JSImport("getSystemTheme", "maui-browser")]
+    [return: JSStringUnion(typeof(BrowserThemeName))]
     internal static partial string GetSystemTheme();
     [JSImport("getThemeColor", "maui-browser")]
-    internal static partial string GetThemeColor(string token, string theme);
+    internal static partial string GetThemeColor(string token, [JSStringUnion(typeof(BrowserThemeName))] string theme);
     [JSImport("startThemeTracking", "maui-browser")]
+    [return: JSStringUnion(typeof(BrowserThemeName))]
     internal static partial string StartThemeTracking();
     [JSImport("applyTheme", "maui-browser")]
-    internal static partial void ApplyTheme(string theme);
+    internal static partial void ApplyTheme([JSStringUnion(typeof(BrowserThemeName))] string theme);
     [JSImport("report", "maui-browser")]
     internal static partial void Report(string message);
     [JSImport("create", "maui-browser")]

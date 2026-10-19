@@ -4,7 +4,7 @@ An experimental .NET MAUI XAML application using the [Fluent UI Web Components b
 
 ## What the application demonstrates
 
-- A normal MAUI application referencing a separate backend project.
+- A normal MAUI application using a separate browser backend.
 - `App.xaml` resources and styles, a responsive Grid, rounded borders and vertical scrolling.
 - Standard `Clicked` code-behind events: Increment and Reset update a named Label.
 - Text input with MAUI text/focus/selection/Completed events from a real Fluent input.
@@ -18,23 +18,12 @@ All application UI is defined in [MainPage.xaml](MainPage.xaml). `wwwroot/index.
 
 ## Application structure
 
-| File | Responsibility |
-| --- | --- |
-| `MauiProgram.cs` / `Program.cs` | MAUI registration and browser-host startup |
-| `App.xaml` | Merged backend palette, application branding and implicit styles |
-| `MainPage.xaml` / `MainPage.xaml.cs` | Page layout, theme selection and ordinary click events |
-| `MainPage.TextInteraction.cs` | Entry events and managed text/selection updates |
-| `MainPage.Animation.cs` | Animation preview and cancellation |
-| `MainPage.Scheduling.cs` | Dispatcher timer ownership and ticks |
-| `MainPage.DynamicLayout.cs` | Runtime child collection changes |
-| `SampleDiagnostics.cs` | Startup/size orchestration and repository navigation |
-| `wwwroot/main.js` / `wwwroot/sample-diagnostics.js` | Bootstrap and the small browser-only diagnostics surface |
+- **C# and XAML at the project root** define the MAUI application, UI, state and event handling. MAUI owns layout; the browser-side code does not implement a second UI renderer. XAML is compiled with MAUI's SourceGen inflator.
+- **`web/` is the browser source directory.** Edit the TypeScript here for startup and browser-only diagnostics. Backend asset preparation also places its JS bundle and public `.d.ts` files here so imports resolve locally; those supplied files are gitignored and should not be edited.
+- **`wwwroot/` contains application web assets.** It holds the handwritten HTML entry page and the JS emitted from `web/` by TypeScript. Edit the TS sources, not the generated JS. This directory alone is not the complete runnable application.
+- **`artifacts/wwwroot/` is the complete published website.** Publishing combines the application web assets with the backend bundle and .NET/Wasm runtime files. Serve or deploy this directory.
 
-The project compiles XAML with MAUI's **SourceGen inflator**. New `.xaml` files are included automatically. It uses code-behind rather than a ViewModel; theme bindings are not evidence of general data-binding compatibility under NativeAOT.
-
-The feature-named partial files keep each page section's state and event handlers together without introducing separate controls or moving application behavior into JS. The main code-behind retains page lifecycle, responsive layout and theme coordination.
-
-At viewport widths of 800 CSS pixels or more, the header places theme selection to the right of the title and the technology cards use four columns. Narrower viewports put theme selection on its own right-aligned row and use two card columns. MAUI computes these layouts; the sample does not implement them in CSS.
+The flow is **TS sources in `web/` → compiled JS in `wwwroot/` → complete site in `artifacts/wwwroot/`**. The sample owns its npm dependencies and TypeScript configuration; MSBuild coordinates backend asset preparation, frontend compilation and publishing.
 
 ## Theme and color resources
 
@@ -75,55 +64,80 @@ The footer displays:
 
 The source button opens the [backend repository directory](https://github.com/Martin1994/maui-labs/tree/fluent-web/platforms/Wasm.FluentUIWebComponents) in a new tab. Metric orchestration and formatting live in `SampleDiagnostics.cs`; the sample-only JS module supplies browser timing/resource information and opens the URL. No file-size constant is generated at build time. If runtime asset URLs change, update the diagnostics URL accordingly.
 
+## External package consumption
+
+Use the backend's [NuGet PackageReference instructions](../../README.md#consume-the-backend-package) for an external application. There are **no released packages currently**; use an experimental/local package version actually available from your configured feed.
+
+**The checked-in C# project is still a source-checkout development project.** It contains a backend `ProjectReference` and an explicit repo-relative targets `<Import>`, and inherits shared product build properties and root Central Package Management. Copying this directory alone does not make `BrowserSample.csproj` an independent NuGet consumer.
+
+To adapt it for external consumption, remove both the backend `ProjectReference` and explicit `<Import>`, add the backend `PackageReference`, and supply your application's own browser toolchain properties, package versions and feeds formerly inherited from the checkout. That includes the target framework/`browser-wasm` RID, JS interop and NativeAOT/trimming settings, and matching LLVM runtime/compiler packages for an available compiler host. Retain SourceGen XAML and the backend `UnmanagedEntryPointsAssembly` entry. NuGet restore automatically imports the packaged targets; do not substitute a NuGet-cache path for the removed import. See the [toolchain requirements](../../README.md#toolchain-configuration) and [inherited configuration details](../../CONTRIBUTING.md#repository-configuration).
+
+The **frontend is portable**: its own `package.json`, lockfile and TypeScript configuration operate on app-local `web/` and `wwwroot/`, with no backend source or intermediate-output paths. Once the backend assets are supplied, TypeScript compilation uses only these local inputs. This split does not establish that a copied, standalone C# project or its NativeAOT publish has been verified.
+
 ## Build and run
 
-See the [backend toolchain configuration](../../README.md#toolchain-configuration) for SDK, MAUI, NativeAOT LLVM and Node versions. The compiler host package is selected automatically as `runtime.$(NETCoreSdkPortableRuntimeIdentifier).Microsoft.DotNet.ILCompiler.LLVM`, following the upstream NativeAOT LLVM guidance. It uses the **SDK host RID**, not the application's `browser-wasm` target RID. Both compiler package versions remain aligned in Central Package Management.
+See the [backend toolchain configuration](../../README.md#toolchain-configuration) for SDK, MAUI, NativeAOT LLVM and Node requirements. Native publishing requires matching runtime/compiler packages, an available compiler host and an initialized compatible Emscripten toolchain; the backend package does not make arbitrary .NET browser SDK configurations work. For the checked-in source-reference project, first complete the [contributor setup](../../CONTRIBUTING.md#build-from-source).
 
-Use a host for which the pinned NativeAOT LLVM compiler package exists, and initialize its native toolchain, including compatible Emscripten **3.1.57**. Automatic package selection does not add support for an unavailable host such as the current macOS ARM64 configuration. On Windows, initialize the Emscripten environment using its Windows activation script; Bash is not required for the npm/MSBuild commands below.
-
-The sample uses `packages.<SDK-host-RID>.lock.json` so different host compilers do not overwrite one shared lockfile. Lockfiles are included for `linux-arm64`, `linux-x64` and `win-x64`. Restore support does not imply a native publish has been tested on every host. Adding another supported compiler host requires generating/reviewing its lockfile. Locked verification is available with `dotnet restore samples/BrowserSample/BrowserSample.csproj -p:RestoreLockedMode=true`.
-
-Run the following from the **backend directory**, `platforms/Wasm.FluentUIWebComponents` (two directories above this README):
+Run all commands below from **this sample directory**, `platforms/Wasm.FluentUIWebComponents/samples/BrowserSample`, not the product root:
 
 ```bash
 npm ci --ignore-scripts
+```
+
+This installs the sample's own locked frontend dependencies. All sample commands are defined in this directory's `package.json`; the backend package does not provide forwarding aliases.
+
+| Sample-local command | Operation |
+| --- | --- |
+| `npm run prepare:browser` | `dotnet msbuild BrowserSample.csproj -t:PrepareMauiBrowserAssets -p:Configuration=Release` |
+| `npm run build:browser` | `dotnet msbuild BrowserSample.csproj -t:BuildBrowserBootstrap -p:Configuration=Release` |
+| `npm run build` | Compile app TypeScript into `wwwroot/` using the sample's local `tsc` |
+| `npm run check` | Type-check the same sources with `--noEmit` |
+| `npm run publish:site` | `dotnet publish BrowserSample.csproj` |
+| `npm run package:site` | `dotnet msbuild BrowserSample.csproj -t:PackageSite` |
+
+### Frontend assets and compilation
+
+The public `MauiBrowserAssetsDirectory` property points to `$(MSBuildProjectDirectory)/web`. Asset preparation places `maui-browser.js`, `maui-browser.d.ts` and `dotnet.d.ts` beside the handwritten TS sources. For a package-based application, restore its NuGet references before preparation; the checked-in source workflow instead requires the backend restore/build described in the contributor guide.
+
+To prepare assets and compile/type-check the frontend without compiling or publishing the native application:
+
+```bash
+npm run prepare:browser
+npm run build
+npm run check
+```
+
+Alternatively, `npm run build:browser` combines asset preparation and TypeScript compilation. `BuildBrowserBootstrap` also runs automatically during normal builds; it invokes `npm run build` with the **sample directory** as its working directory. With assets already prepared, `npm run build` and `npm run check` need no backend source build. The MSBuild preparation/bootstrap targets do not implicitly restore the application's native compiler host.
+
+`tsconfig.json` compiles application TS into `wwwroot/`, resolving the adjacent declarations without `allowJs`, `checkJs`, `rootDirs` or a backend-bundle exclusion. The sample's `.gitignore` ignores `web/*.js` and `web/*.d.ts`, **not handwritten `web/*.ts`**; it also ignores emitted `wwwroot/*.js` and its own `bin`, `obj`, `node_modules` and `artifacts` directories. Supplied/generated files should not be edited. `wwwroot/index.html` remains handwritten and supplies the static mount/bootstrap root. Backend targets manage the backend output/publish assets separately; no custom source-path lookup or copy step is needed.
+
+### Publish and host
+
+After toolchain setup and npm installation, run from this sample directory:
+
+```bash
 npm run publish:site
 npm run package:site
-node scripts/serve.mjs
 ```
 
-After the one-time toolchain/npm setup, publishing and packaging need no RID, output-path or other custom parameters. `publish:site` invokes standard `dotnet publish` (Release by default for this .NET 10 project); `package:site` invokes the independent `PackageSite` MSBuild target. The project sets `RuntimeIdentifier=browser-wasm` and shares a default site directory between both operations:
+Publishing and packaging use the project's defaults without extra RID or output-path parameters. `dotnet publish` defaults to Release for this .NET 10 project. The shared `SiteDirectory` and `SiteArchive` defaults are **sample-local**, not product-root artifacts:
 
-- Published website: `artifacts/wwwroot`.
-- Complete website archive: `artifacts/BrowserSample-site.zip`.
+- Published website: `samples/BrowserSample/artifacts/wwwroot` relative to the product root (`artifacts/wwwroot` from here).
+- Complete website archive: `samples/BrowserSample/artifacts/BrowserSample-site.zip` relative to the product root (`artifacts/BrowserSample-site.zip` from here).
 
-The equivalent direct commands, also without custom properties, are:
+Publishing does not automatically ZIP, and packaging does not rebuild or publish. If invoking `Publish` directly through MSBuild, include `-restore` on a clean project; unlike `dotnet publish`, `dotnet msbuild -t:Publish` does not implicitly restore. The project uses invariant globalization and enables trimming/AOT diagnostics through its current shared configuration.
 
-```bash
-dotnet publish samples/BrowserSample/BrowserSample.csproj
-dotnet msbuild samples/BrowserSample/BrowserSample.csproj -target:PackageSite
-```
+Host the published `artifacts/wwwroot` directory with any static server that serves Wasm correctly; no repository hosting script or .NET server is required. See the deployment requirements below.
 
-Both are ordinary MSBuild targets. To invoke `Publish` directly through MSBuild, include the standard `-restore` switch on a clean checkout; unlike `dotnet publish`, `dotnet msbuild -target:Publish` does not implicitly restore. Publishing does not automatically ZIP, and packaging does not rebuild or publish.
+### Contributor-only checkout details
 
-The optional `bash scripts/publish.sh` helper remains available without arguments on Bash hosts. It installs locked npm dependencies, performs locked NuGet restore, and captures a publish log/binlog. It uses the same project defaults rather than supplying a separate RID or output directory. It accepts an already initialized Emscripten toolchain, or loads `emsdk_env.sh` from the configured `EMSDK` directory. Trimming/AOT diagnostics are enabled by the project configuration for both publish entry points.
-
-The server binds to `127.0.0.1:8768` with the correct Wasm MIME type. It serves `artifacts/wwwroot`, or the collected site recorded in `artifacts/latest-webroot` when that marker exists. Restart it after selecting new output.
-
-For a regular build rather than native publishing, also from the backend directory:
-
-```bash
-npm ci --ignore-scripts
-MSBuildEnableWorkloadResolver=false dotnet build Wasm.FluentUIWebComponents.slnx -c Release
-```
-
-`jsconfig.json` resolves sample bootstrap imports against the backend's generated declarations. JavaScript is checked during the build; after the declarations exist, `npm run check:sample` reruns that check separately. The project uses invariant globalization.
+Backend source builds, the sample's explicit source-reference import, inherited build/CPM settings and compiler-host lockfiles are covered in [CONTRIBUTING.md](../../CONTRIBUTING.md). They describe this checkout, not the recommended reference mechanism for external applications.
 
 ## Static deployment and optional ZIP
 
 The **published site directory** can be served or uploaded as-is. PDBs, declarations and runtime metadata can remain. Do not deploy the entire `artifacts` directory, which can contain logs and unrelated build outputs.
 
-From the backend directory, this optional command archives the complete `artifacts/wwwroot` without rebuilding or filtering files:
+From this **sample directory**, this optional command archives the complete sample-local `artifacts/wwwroot` without rebuilding, stripping or filtering files:
 
 ```bash
 npm run package:site
@@ -137,7 +151,7 @@ npm run package:site -- -p:SiteDirectory=/path/to/published-site -p:SiteArchive=
 
 `SiteDirectory` also supplies the default `PublishDir`, so the same override can be used for both publishing and packaging. An explicit `PublishDir` is used as the packaging source when no separate `SiteDirectory` is supplied. Custom paths must be supplied again for a later, independent packaging invocation; the project does not persist command-line overrides.
 
-Cross-machine collection is a separate workflow. If a machine only collects output and has no local `artifacts/wwwroot`, pass that collected site as `SiteDirectory`; `PackageSite` deliberately does not auto-select `artifacts/latest-webroot`. No source-path override is needed on the machine that performed a normal publish.
+If packaging an already published site collected from another machine, pass that static folder as `SiteDirectory`. Packaging uses the supplied/default directory, not a repository collection marker, and needs no backend source-path override.
 
 `index.html` is at the ZIP root. Keep the archive destination outside the source site. You can instead copy or ZIP the published directory using your usual deployment tools.
 

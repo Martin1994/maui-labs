@@ -2,11 +2,24 @@
 
 An experimental, minimal .NET MAUI browser backend using NativeAOT LLVM, WebAssembly, and Fluent UI Web Components. This is currently a development starting point, not a complete or supported MAUI platform.
 
-## Backend project
+## Consume the backend package
 
-`src/Wasm.FluentUIWebComponents` provides the platform host, MAUI handlers, dispatcher, DOM interop, theme resources and browser assets. The backend is independent of any application UI. There is no Blazor renderer, Fluent Blazor, or `IJSRuntime`.
+The package provides the platform host, MAUI handlers, dispatcher, DOM interop, theme resources and browser assets. The backend is independent of any application UI. There is no Blazor renderer, Fluent Blazor, or `IJSRuntime`.
 
-The backend is currently consumed through a project reference. Packaged releases are not yet available. A separate example application has its own [BrowserSample README](samples/BrowserSample/README.md), including application features, publishing and static deployment instructions.
+There are **no released packages currently**. External consumption uses an experimental/local NuGet package from a feed you configure, not a source-checkout reference. In an application configured for the [required browser toolchain](#toolchain-configuration), add:
+
+```xml
+<ItemGroup>
+    <PackageReference Include="Microsoft.Maui.Platforms.Wasm.FluentUIWebComponents"
+                      Version="$(MauiFluentBackendVersion)" />
+</ItemGroup>
+```
+
+`MauiFluentBackendVersion` is an application-defined MSBuild property: set it to the exact experimental/local package version available from your feed. It is not a published-version claim or a property supplied by the backend. This reference does not by itself configure a complete NativeAOT LLVM application.
+
+The `.nupkg` contains `buildTransitive/Microsoft.Maui.Platforms.Wasm.FluentUIWebComponents.targets`. NuGet restore generates `obj/<project>.nuget.g.targets` and automatically imports it. **Remove any repo-relative backend `<Import>` when switching to the package; do not replace it with a NuGet-cache path or edit the generated imports.** This is standard NuGet [MSBuild `build`/`buildTransitive` integration](https://learn.microsoft.com/en-us/nuget/concepts/msbuild-props-and-targets).
+
+The [BrowserSample README](samples/BrowserSample/README.md) covers application features, publishing and static deployment, and explains its current checkout-dependent C# project. Backend source builds and repository setup belong in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Application model
 
@@ -56,49 +69,47 @@ These are selected browser platform services, not a complete Essentials implemen
 
 ## Toolchain configuration
 
-Building the managed backend requires a .NET SDK compatible with the target framework and NativeAOT LLVM packages, and Node/npm for the browser assets. Publishing consuming applications additionally requires a compatible NativeAOT compiler host and Emscripten toolchain. The values below describe the repository's current configuration, **not a minimum-version or exhaustive host-support matrix**.
+Consuming applications require a .NET SDK compatible with the target framework and NativeAOT LLVM packages. Publishing additionally requires a matching NativeAOT compiler host and Emscripten toolchain; this package is not turnkey support for arbitrary .NET browser SDKs. Node/npm is required for the sample's TypeScript frontend build. The values below describe the current toolchain configuration, **not a minimum-version or exhaustive host-support matrix**.
 
 | Component | Current configuration |
 | --- | --- |
-| .NET SDK | Stable .NET 10.0 SDK; [global.json](global.json) selects the latest installed 10.0 feature band (`latestFeature`) |
-| MAUI | `10.0.41`, using repository central package management |
+| .NET SDK | Stable .NET 10.0 SDK |
+| MAUI | `10.0.41` |
 | NativeAOT LLVM compiler/runtime | `10.0.0-rc.1.26357.1` |
-| Node | 22+, as declared in `package.json` |
+| Emscripten | `3.1.57` |
+| Node (sample frontend) | 22+ |
 
 NativeAOT LLVM's [compilation guide](https://github.com/dotnet/runtimelab/blob/9954350a58ede8b8eaaeb24112ca4f1e78cc527c/docs/using-nativeaot/compiling.md) describes compiler-host support, including Windows x64. The backend is not inherently Linux-only. A consuming application must select a matching compiler host package and native toolchain for publishing. Keep compiler and runtime package versions aligned; upstream support alone does not establish this backend's full host-support matrix.
 
 The application targets `browser-wasm`; browser compatibility is separate from the operating system used to compile it. A complete browser support matrix has not yet been established.
 
-The SDK is not locked to `10.0.112`. SDK selection allows newer stable 10.0 feature bands such as `10.0.401`, but not .NET 11 or preview SDKs. This does not change the pinned NativeAOT LLVM compiler/runtime packages.
-
-NuGet sources are defined in [NuGet.config](NuGet.config), including the experimental compiler feed. NuGet dependencies use repository central package management; JavaScript dependencies and build tools are pinned in `package-lock.json`.
-
-## Build the backend
-
-Run from this directory:
-
-```bash
-npm ci --ignore-scripts
-MSBuildEnableWorkloadResolver=false dotnet build src/Wasm.FluentUIWebComponents/Wasm.FluentUIWebComponents.csproj -c Release
-```
-
-This builds the managed library and its browser JS/declarations, not a runnable website. Assets are copied into consuming applications through the project reference. Publishing a runnable application additionally requires a compatible NativeAOT compiler host and Emscripten toolchain; see the [example application's build instructions](samples/BrowserSample/README.md#build-and-run).
-
 ## Browser assets and types
 
-The browser bridge is implemented in TypeScript, with its public entry point in [maui-browser.ts](src/Wasm.FluentUIWebComponents/web/maui-browser.ts). MSBuild invokes the frontend build automatically: TypeScript checks the sources and emits declarations, then esbuild bundles the bridge and Fluent dependencies into a **self-contained ESM module**.
+The backend provides a **self-contained ESM module** containing the browser bridge and Fluent dependencies, with TypeScript declarations for its [application startup API](src/Wasm.FluentUIWebComponents/web/maui-browser.ts).
 
-The project reference supplies three assets to the application output and publish directory:
+The NuGet package supplies three assets to the application output and publish directory:
 
 - `maui-browser.js`: the browser bridge and Fluent implementation.
 - `maui-browser.d.ts`: `startMaui` and the returned `MauiApplicationHandle`.
 - `dotnet.d.ts`: the original declaration from the matching LLVM runtime package.
 
+To make these files available beside your application's browser source, set `MauiBrowserAssetsDirectory` in the application project:
+
+```xml
+<PropertyGroup>
+    <MauiBrowserAssetsDirectory>$(MSBuildProjectDirectory)/web</MauiBrowserAssetsDirectory>
+</PropertyGroup>
+```
+
+The package's automatically imported targets honor this public property; no manual import, backend source path or intermediate-output path is needed.
+
+The selected directory reserves the three filenames above for generated assets; gitignore those files and keep application code in separate files. Builds refresh them before compilation, and `PrepareMauiBrowserAssets` can be invoked explicitly after the application's NuGet restore to prepare packaged assets without compiling the application. Imports resolve against adjacent `.d.ts` files without `rootDirs` or paths into the backend. Keep application TypeScript sources in `web/` and compile application JS into `wwwroot/`, as the sample does, without rechecking the backend bundle. The targets manage backend build/publish resources separately, so do not add another custom copy step for these files.
+
 The application imports its own runtime's `dotnet.js` and passes its builder to `startMaui`. The runtime JS exports live in the backend assembly; consuming applications must include that assembly in `UnmanagedEntryPointsAssembly` to preserve the exports. Use the runtime assets supplied by the configured LLVM toolchain, not SDK/Blazor replacements.
 
-Declarations become available after the first build. A standalone frontend build (`npm run build`) requires the backend's NuGet restore first. Consumers can type-check their bootstrap code against the generated public declarations; private implementation declarations are not distributed.
+The browser interop contract is generated from the backend's C# declarations when the backend is built. The resulting browser bundle and public type declarations are packaged together; consuming applications do not need to configure or run backend code generation. Declarations become available beside application sources after asset preparation or the first application build and can be used to type-check application bootstrap code. Private implementation declarations are not distributed.
 
-The backend uses explicit internal interop contracts and validates the managed export object. Runtime declarations may describe APIs beyond the subset supported by NativeAOT LLVM; their presence alone does not guarantee runtime support.
+Code generation is provided by [Wasm.FluentUIWebComponents.CodeGen](tools/Wasm.FluentUIWebComponents.CodeGen/README.md); its README contains implementation and testing details. Runtime declarations may describe APIs beyond the subset supported by NativeAOT LLVM; their presence alone does not guarantee runtime support.
 
 ### Web Component contract
 
@@ -169,6 +180,6 @@ These are backend-specific resources, not a cross-platform MAUI palette. Treat t
 
 Full trimming and both AOT/trimming analyzers are enabled. Unused reflection-based implicit conversions and Shell query-property reflection are disabled through MAUI feature switches, not warning suppression. No entire MAUI assembly is preserved and no MAUI/runtime fork is required.
 
-## Dependency changes
+## Contributing
 
-Follow the repository's dependency policies. Run `node ../../eng/scripts/audit-npm.mjs` for npm dependency or lockfile changes before opening a PR, and keep the npm project registered in `.github/dependabot.yml`.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for source builds, repository configuration and dependency-change checks.

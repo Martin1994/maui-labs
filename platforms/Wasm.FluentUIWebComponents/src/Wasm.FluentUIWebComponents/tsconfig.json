@@ -15,5 +15,6 @@
     "rootDir": "web",
     "outDir": "obj/browser-declarations"
   },
+  "files": ["web/generated/contracts.g.ts", "web/dotnet.d.ts"],
   "include": ["web/**/*.ts"]
 }

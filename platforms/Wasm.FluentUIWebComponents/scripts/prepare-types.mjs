@@ -1,9 +1,9 @@
-import { access, copyFile, mkdir, readFile, writeFile } from 'node:fs/promises';
+import { access, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { resolve, dirname } from 'node:path';
 import { createHash } from 'node:crypto';
 
 /** Resolve the declaration from the actual restored graph, not a duplicated package version. */
-export async function prepareRuntimeTypes(root) {
+export async function prepareRuntimeTypes(root, buildDirectory) {
     const backend = resolve(root, 'src/Wasm.FluentUIWebComponents');
     let source;
     let packageIdentity;
@@ -47,12 +47,29 @@ export async function prepareRuntimeTypes(root) {
             throw new Error(`The restored ${identity} package does not contain dotnet.d.ts; restore it or review the runtime version.`);
         }
     }
+    // This physical sibling of maui-browser.ts keeps ./dotnet.js valid in public declarations.
     const destination = resolve(backend, 'web/dotnet.d.ts');
     await mkdir(dirname(destination), { recursive: true });
-    if (resolve(source) !== destination) {
-        await copyFile(source, destination);
+    const contents = await readFile(source);
+    let current;
+    try {
+        current = await readFile(destination);
+    } catch (error) {
+        if (error.code !== 'ENOENT') {
+            throw error;
+        }
     }
-    const evidence = resolve(backend, 'obj/browser-declarations');
+    if (!current?.equals(contents)) {
+        // Avoid truncating the shared declaration while another configuration reads it.
+        const temporary = destination + `.${process.pid}.tmp`;
+        try {
+            await writeFile(temporary, contents);
+            await rename(temporary, destination);
+        } finally {
+            await rm(temporary, { force: true });
+        }
+    }
+    const evidence = resolve(buildDirectory, 'runtime');
     await mkdir(evidence, { recursive: true });
     await writeFile(resolve(evidence, 'runtime-types.json'), JSON.stringify({
         packageIdentity, source, sha256: createHash('sha256').update(await readFile(source)).digest('hex'),

@@ -5,7 +5,8 @@ import { createInputStyles } from './input.styles.js';
 
 // DOM nodes and listeners stay JS-owned; MAUI computes container frames.
 export class DomBrowserBridge implements BrowserBridge {
-    readonly imports: BrowserImports;
+    // The existing JS-only unsubscribe operation is not part of the C# import contract.
+    readonly imports: BrowserImports & { unsubscribeClick(id: number): void };
 
     readonly #viewport: HTMLElement;
     readonly #getApi: () => BrowserApplicationExports;

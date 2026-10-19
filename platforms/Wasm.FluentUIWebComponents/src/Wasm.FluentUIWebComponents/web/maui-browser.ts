@@ -1,9 +1,8 @@
 import type { DotnetHostBuilder } from './dotnet.js';
 import type { BrowserApplicationExports, BrowserBridge } from './contracts.js';
-import { resolveBrowserExports } from './contracts.js';
+import { BrowserModuleName, BrowserApplicationAssemblyName, resolveBrowserExports } from './contracts.js';
 import { DomBrowserBridge } from './bridge.js';
 import { initializeFluent } from './fluent.js';
-import './components/define.js';
 
 /** Owns a running browser application. Repeated disposal is harmless. */
 export interface MauiApplicationHandle {
@@ -63,8 +62,8 @@ export async function startMaui(
         bridge = new DomBrowserBridge(element, getApi, onError);
         await initializeFluent();
         const runtime = await dotnet.withMainAssembly(mainAssembly).create();
-        runtime.setModuleImports('maui-browser', bridge.imports);
-        api = resolveBrowserExports(await runtime.getAssemblyExports('Microsoft.Maui.Platforms.Wasm.FluentUIWebComponents.dll'));
+        runtime.setModuleImports(BrowserModuleName, bridge.imports);
+        api = resolveBrowserExports(await runtime.getAssemblyExports(BrowserApplicationAssemblyName));
         const exitCode = await runtime.runMain(mainAssembly, []);
         if (exitCode !== 0) {
             throw new Error(`MAUI Main exited with code ${exitCode}`);

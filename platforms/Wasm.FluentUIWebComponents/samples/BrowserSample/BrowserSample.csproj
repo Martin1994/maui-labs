@@ -3,6 +3,7 @@
     <OutputType>Exe</OutputType>
     <AssemblyName>FluentBrowserSample</AssemblyName>
     <RootNamespace>FluentBrowserSample</RootNamespace>
+    <MauiBrowserAssetsDirectory>$(MSBuildProjectDirectory)/web</MauiBrowserAssetsDirectory>
     <SelfContained>true</SelfContained>
     <UseAppHost>false</UseAppHost>
     <InvariantGlobalization>true</InvariantGlobalization>
@@ -12,9 +13,9 @@
     <NuGetLockFilePath>packages.$(NETCoreSdkPortableRuntimeIdentifier).lock.json</NuGetLockFilePath>
     <!-- Publish and PackageSite share defaults regardless of the invoking shell. -->
     <SiteDirectory Condition="'$(SiteDirectory)' == '' and '$(PublishDir)' != ''">$(PublishDir)</SiteDirectory>
-    <SiteDirectory Condition="'$(SiteDirectory)' == ''">$(MSBuildProjectDirectory)/../../artifacts/wwwroot</SiteDirectory>
+    <SiteDirectory Condition="'$(SiteDirectory)' == ''">$(MSBuildProjectDirectory)/artifacts/wwwroot</SiteDirectory>
     <PublishDir Condition="'$(PublishDir)' == ''">$(SiteDirectory)/</PublishDir>
-    <SiteArchive Condition="'$(SiteArchive)' == ''">$(MSBuildProjectDirectory)/../../artifacts/BrowserSample-site.zip</SiteArchive>
+    <SiteArchive Condition="'$(SiteArchive)' == ''">$(MSBuildProjectDirectory)/artifacts/BrowserSample-site.zip</SiteArchive>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/Wasm.FluentUIWebComponents/Wasm.FluentUIWebComponents.csproj" />
@@ -22,11 +23,19 @@
     <PackageReference Include="runtime.$(NETCoreSdkPortableRuntimeIdentifier).Microsoft.DotNet.ILCompiler.LLVM" />
     <MauiXaml Include="**/*.xaml" Exclude="$(DefaultItemExcludes)" Inflator="SourceGen" />
     <UnmanagedEntryPointsAssembly Include="Microsoft.Maui.Platforms.Wasm.FluentUIWebComponents" />
-    <WasmExtraFilesToDeploy Include="wwwroot/*" />
+    <BrowserSampleTypeScript Include="web/**/*.ts" Exclude="web/**/*.d.ts" />
+    <!-- Register outputs from source names, not an output glob: they need not exist on the first build. -->
+    <BrowserSampleJavaScript Include="@(BrowserSampleTypeScript->'wwwroot/%(RecursiveDir)%(Filename).js')" />
+    <WasmExtraFilesToDeploy Include="wwwroot/*" Exclude="@(BrowserSampleJavaScript)" />
+    <WasmExtraFilesToDeploy Include="@(BrowserSampleJavaScript)" />
   </ItemGroup>
-  <Target Name="CheckBrowserBootstrap" BeforeTargets="CoreCompile" Condition="'$(DesignTimeBuild)' != 'true'">
-    <!-- ResolveProjectReferences has already built the library and its declarations. -->
-    <Exec WorkingDirectory="$(MSBuildProjectDirectory)/../.." Command="npm run check:sample" />
+  <Import Project="../../src/Wasm.FluentUIWebComponents/buildTransitive/Microsoft.Maui.Platforms.Wasm.FluentUIWebComponents.targets" />
+  <Target Name="BuildBrowserBootstrap" BeforeTargets="CoreCompile" DependsOnTargets="PrepareMauiBrowserAssets"
+          Condition="'$(DesignTimeBuild)' != 'true'">
+    <Exec WorkingDirectory="$(MSBuildProjectDirectory)" Command="npm run build" />
+    <ItemGroup>
+      <FileWrites Include="@(BrowserSampleJavaScript)" />
+    </ItemGroup>
   </Target>
   <Target Name="PackageSite">
     <Error Condition="!Exists('$(SiteDirectory)')"

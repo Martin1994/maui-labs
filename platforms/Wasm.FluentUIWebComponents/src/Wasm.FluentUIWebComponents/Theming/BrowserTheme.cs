@@ -10,8 +10,8 @@ internal static class BrowserTheme
         // Unspecified must be resolved by the host, not sent as an effective theme.
         return theme switch
         {
-            AppTheme.Light => "light",
-            AppTheme.Dark => "dark",
+            AppTheme.Light => BrowserThemeName.Light,
+            AppTheme.Dark => BrowserThemeName.Dark,
             _ => throw new ArgumentOutOfRangeException(nameof(theme), theme, "Unsupported effective MAUI theme.")
         };
     }
@@ -20,8 +20,8 @@ internal static class BrowserTheme
     {
         return theme switch
         {
-            "light" => AppTheme.Light,
-            "dark" => AppTheme.Dark,
+            BrowserThemeName.Light => AppTheme.Light,
+            BrowserThemeName.Dark => AppTheme.Dark,
             _ => throw new ArgumentOutOfRangeException(nameof(theme), theme, "Unsupported browser theme.")
         };
     }
