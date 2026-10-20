@@ -9,7 +9,6 @@
     <LangVersion>latest</LangVersion>
     <IsShipping>false</IsShipping>
     <IsPackable>false</IsPackable>
-    <MSBuildEnableWorkloadResolver>false</MSBuildEnableWorkloadResolver>
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <DotNetJsApi>true</DotNetJsApi>

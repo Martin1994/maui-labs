@@ -1,24 +1,30 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { runTypeScript } from '../typescript-cli.mjs';
 
 const root = fileURLToPath(new URL('../..', import.meta.url));
 const backend = resolve(root, 'src/Wasm.FluentUIWebComponents');
 const project = join(backend, 'Wasm.FluentUIWebComponents.csproj');
+const sample = join(root, 'samples/BrowserSample');
 const dotnet = process.env.DOTNET_HOST_PATH || 'dotnet';
 const assetNames = ['maui-browser.js', 'maui-browser.d.ts', 'dotnet.d.ts'];
+const nativeNames = ['dotnet.native.wasm', 'dotnet.native.js', 'dotnet.js'];
+const appScripts = ['main.js', 'sample-diagnostics.js'];
 const consumerTargets = join(backend, 'buildTransitive/Microsoft.Maui.Platforms.Wasm.FluentUIWebComponents.targets');
-const consumerItems = ['ContentWithTargetPath', '_NoneWithTargetPath', 'WasmExtraFilesToDeploy'];
+const toolLeakage = /Wasm\.FluentUIWebComponents\.CodeGen|Microsoft\.CodeAnalysis|Microsoft\.Build|BuildHost/u;
 
-async function run(args) {
+async function command(executable, args, cwd = root) {
     return await new Promise((resolveResult, reject) => {
-        const child = spawn(dotnet, args, { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] });
+        const child = spawn(executable, args, {
+            cwd,
+            shell: executable === 'npm' && process.platform === 'win32',
+            stdio: ['ignore', 'pipe', 'pipe'],
+        });
         let output = '';
         child.stdout.on('data', chunk => {
             output += chunk;
@@ -29,7 +35,7 @@ async function run(args) {
         child.on('error', reject);
         child.on('close', code => {
             if (code !== 0) {
-                reject(new Error(`${args.join(' ')}\n${output}`));
+                reject(new Error(`${executable} ${args.join(' ')}\n${output}`));
             } else {
                 resolveResult(output);
             }
@@ -37,14 +43,12 @@ async function run(args) {
     });
 }
 
-async function directory(configuration) {
-    const output = await run(['msbuild', project, '-getProperty:BrowserBuildDirectory',
-        `-property:Configuration=${configuration}`, '-nologo']);
-    return output.trim();
+async function run(args) {
+    return await command(dotnet, args);
 }
 
-function xml(value) {
-    return value.replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;');
+async function npm(directory, ...args) {
+    return await command('npm', args, directory);
 }
 
 async function runJson(args) {
@@ -59,188 +63,349 @@ async function runJson(args) {
     }
 }
 
-function createConsumer(parent, name, { assetsDirectory, reference, properties = '', explicitImport = false }) {
-    const directory = join(parent, name);
-    const assets = join(directory, assetsDirectory);
-    const appDirectories = new Set(['wwwroot', assetsDirectory]);
-    const appFiles = [];
-    const appSource = 'export const fixture = "App-owned JavaScript must not be rewritten";\n';
-    for (const appDirectory of appDirectories) {
-        mkdirSync(join(directory, appDirectory), { recursive: true });
-        const appFile = join(directory, appDirectory, 'main.js');
-        writeFileSync(appFile, appSource);
-        appFiles.push(appFile);
+async function directory(configuration) {
+    const output = await run(['msbuild', project, '-getProperty:BrowserBuildDirectory',
+        `-property:Configuration=${configuration}`, '-nologo']);
+    return output.trim();
+}
+
+function xml(value) {
+    return value.replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;');
+}
+
+function write(path, contents) {
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, contents);
+}
+
+function temporaryDirectory(t, prefix) {
+    // Node resolves imported module URLs through macOS's /var -> /private/var symlink.
+    const temporary = realpathSync(mkdtempSync(prefix));
+    t.after(() => {
+        rmSync(temporary, { recursive: true, force: true });
+    });
+    return temporary;
+}
+
+function snapshot(directory) {
+    const result = new Map();
+    function visit(relative) {
+        for (const entry of readdirSync(join(directory, relative), { withFileTypes: true })) {
+            const path = join(relative, entry.name);
+            if (entry.isDirectory()) {
+                visit(path);
+            } else {
+                assert.ok(entry.isFile(), `Unexpected non-file asset: ${path}`);
+                result.set(path.replaceAll('\\', '/'), readFileSync(join(directory, path)));
+            }
+        }
     }
-    const sentinel = join(directory, 'unused assets/maui-browser.js');
-    mkdirSync(join(directory, 'unused assets'), { recursive: true });
-    writeFileSync(sentinel, 'An unrelated directory is not owned by asset preparation.\n');
-    const globs = [...appDirectories].map(appDirectory => {
-        return `    <Content Include="${xml(appDirectory)}/*" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
-    <WasmExtraFilesToDeploy Include="${xml(appDirectory)}/*" />`;
-    }).join('\n');
-    const checks = assetNames.map(name => {
-        return `    <Error Condition="!Exists('$(MSBuildProjectDirectory)/$(MauiBrowserAssetsDirectory)/${name}')" Text="Missing prepared browser asset: ${name}" />`;
-    }).join('\n');
-    const importElement = explicitImport ? `  <Import Project="${xml(consumerTargets)}" />\n` : '';
+    visit('');
+    return result;
+}
+
+function assertNoTools(directory) {
+    for (const name of snapshot(directory).keys()) {
+        assert.doesNotMatch(name, toolLeakage, 'Build-only dependencies must not reach consumer output');
+    }
+}
+
+function assertAssets(directory, canonicalDirectory) {
+    for (const name of assetNames) {
+        assert.deepEqual(readFileSync(join(directory, name)), readFileSync(join(canonicalDirectory, name)), name);
+    }
+}
+
+function createConsumer(parent, name, { reference, properties = '' }) {
+    const directory = join(parent, name);
     const consumerProject = join(directory, 'Consumer.csproj');
-    writeFileSync(consumerProject, `<Project Sdk="Microsoft.NET.Sdk">
+    const appSource = 'export const fixture = "App-owned JavaScript must not be rewritten";\n';
+    write(join(directory, 'web source/main.js'), appSource);
+    write(join(directory, 'metadata/nested/info.json'), '{"fixture":"publish content"}\n');
+    write(join(directory, 'Fixture.cs'), 'public sealed class Fixture\n{\n}\n');
+    // LLVM is private to the backend. This consumer has no compiler package and is
+    // deliberately a non-native class library: the ordinary SDK Publish pipeline
+    // must collect and COPY Content, not merely return a simulated publish list.
+    // These are local properties, not global overrides of the backend build.
+    write(consumerProject, `<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <!-- This is an asset-pipeline class library, not a NativeAOT application. -->
+    <OutputType>Library</OutputType>
+    <PublishAot>false</PublishAot>
     <PublishTrimmed>false</PublishTrimmed>
     <SelfContained>false</SelfContained>
-    <MauiBrowserAssetsDirectory>${xml(assetsDirectory)}</MauiBrowserAssetsDirectory>
+    <UseAppHost>false</UseAppHost>
+    <DotNetJsApi>false</DotNetJsApi>
+    <!-- This browser-wasm fixture tests Content publishing, not SDK wasm-tools. -->
+    <MSBuildEnableWorkloadResolver>false</MSBuildEnableWorkloadResolver>
+    <PublishDir>$(MSBuildProjectDirectory)/published/</PublishDir>
+    <DefaultItemExcludes>$(DefaultItemExcludes);published/**</DefaultItemExcludes>
 ${properties}
   </PropertyGroup>
   <ItemGroup>
 ${reference}
-${globs}
+    <Content Include="web source/main.js" TargetPath="main.js" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="metadata/**/*" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
-${importElement}  <Target Name="Check" BeforeTargets="CoreCompile" DependsOnTargets="PrepareMauiBrowserAssets">
-${checks}
-    <Message Importance="high" Text="Browser fixture assets checked before CoreCompile." />
-  </Target>
 </Project>\n`);
-    return { directory, project: consumerProject, assets, appFiles, appSource, sentinel };
+    assert.doesNotMatch(readFileSync(consumerProject, 'utf8'), /<Import\b|MauiBrowserAssetsDirectory|WasmExtraFilesToDeploy/u,
+        'Consumers must neither import backend source targets nor declare asset mirrors');
+    return { directory, project: consumerProject, published: join(directory, 'published'), appSource };
 }
 
-function assertPrepared(consumer, canonicalDirectory) {
+async function exerciseConsumer(consumer, canonicalDirectory) {
+    let destinations;
+    for (const phase of ['cold', 'warm', 'deleted-output']) {
+        if (phase === 'deleted-output') {
+            rmSync(consumer.published, { recursive: true, force: true });
+        }
+        // A real dotnet publish, including the SDK's resolved-file copy targets.
+        await run(['publish', consumer.project, '-c', 'Release', '--nologo']);
+        const collected = await runJson(['msbuild', consumer.project,
+            '-target:Build;GetCopyToPublishDirectoryItems', '-property:Configuration=Release',
+            '-getProperty:TargetDir,PublishDir,PublishAot',
+            '-getTargetResult:GetCopyToPublishDirectoryItems', '-nologo']);
+        assert.equal(collected.Properties.PublishAot, 'false', 'This fixture must not claim NativeAOT coverage');
+        assert.equal(resolve(collected.Properties.PublishDir), consumer.published);
+        const items = collected.TargetResults.GetCopyToPublishDirectoryItems.Items;
+        assert.ok(Array.isArray(items), 'Inspect the actual SDK publish collector');
+        destinations = [];
+        for (const name of assetNames) {
+            const matches = items.filter(item => {
+                return item.TargetPath?.replaceAll('\\', '/') === name;
+            });
+            assert.equal(matches.length, 1, `${phase}: ${name} must have exactly one SDK publish destination`);
+            const item = matches[0];
+            assert.equal(resolve(consumer.directory, item.FullPath || item.Identity), resolve(canonicalDirectory, name),
+                `${name} must come from its canonical provider`);
+            const canonicalItems = items.filter(candidate => {
+                return resolve(consumer.directory, candidate.FullPath || candidate.Identity) === resolve(canonicalDirectory, name);
+            });
+            assert.equal(canonicalItems.length, 1, `${name} must not also publish under a second path`);
+            destinations.push(item.TargetPath.replaceAll('\\', '/'));
+            assert.ok(!existsSync(join(consumer.directory, 'web source', name)), 'No consumer-side mirror is needed');
+        }
+        assertAssets(consumer.published, canonicalDirectory);
+        const output = resolve(consumer.directory, collected.Properties.TargetDir);
+        assertAssets(output, canonicalDirectory);
+        assert.ok(existsSync(join(consumer.published, 'Consumer.dll')), 'Publish must really copy the managed fixture');
+        assert.ok(!existsSync(join(consumer.published, 'dotnet.native.wasm')), 'Managed fixture is not an AOT application');
+        assert.equal(readFileSync(join(consumer.published, 'main.js'), 'utf8'), consumer.appSource);
+        assert.equal(readFileSync(join(consumer.directory, 'web source/main.js'), 'utf8'), consumer.appSource);
+        assert.deepEqual(readFileSync(join(consumer.published, 'metadata/nested/info.json')),
+            readFileSync(join(consumer.directory, 'metadata/nested/info.json')));
+        assertNoTools(output);
+        assertNoTools(consumer.published);
+    }
+    return destinations.sort();
+}
+
+async function exerciseFrontend(t, publishedBackend) {
+    const isolated = temporaryDirectory(t, join(tmpdir(), 'fluent-browser-frontend-'));
+    for (const name of ['package.json', 'package-lock.json', '.gitignore', 'tsconfig.json']) {
+        copyFileSync(join(sample, name), join(isolated, name));
+    }
+    cpSync(join(sample, 'scripts'), join(isolated, 'scripts'), { recursive: true });
+    // The real checkout may retain ignored JS from the former wwwroot tsc output.
+    // Copy the handwritten HTML, not those stale local build products.
+    write(join(isolated, 'wwwroot/index.html'), readFileSync(join(sample, 'wwwroot/index.html')));
+    // Copy handwritten TS only: never inherit generated editor files or a local npm install.
+    for (const name of ['main.ts', 'sample-diagnostics.ts']) {
+        write(join(isolated, 'web', name), readFileSync(join(sample, 'web', name)));
+    }
+    const published = join(isolated, 'artifacts/maui');
+    const compiled = join(isolated, 'artifacts/typescript');
+    const site = join(isolated, 'artifacts/wwwroot');
     for (const name of assetNames) {
-        assert.deepEqual(readFileSync(join(consumer.assets, name)), readFileSync(join(canonicalDirectory, name)),
-            `${name} must mirror the canonical provider`);
+        write(join(published, name), readFileSync(join(publishedBackend, name)));
     }
-    for (const appFile of consumer.appFiles) {
-        assert.equal(readFileSync(appFile, 'utf8'), consumer.appSource);
+    // EXPLICIT MOCK native/runtime files: only site assembly is tested here.
+    // These bytes are not executable and do not validate NativeAOT or browser startup.
+    for (const name of nativeNames) {
+        write(join(published, name), `MOCK native assembly fixture: ${name}\n`);
     }
-    assert.equal(readFileSync(consumer.sentinel, 'utf8'),
-        'An unrelated directory is not owned by asset preparation.\n');
-}
-
-function itemPath(consumer, item) {
-    return resolve(consumer.directory, item.FullPath || item.Identity);
-}
-
-function assertFiltered(consumer, result) {
-    const mirrors = assetNames.map(name => {
-        return join(consumer.assets, name);
-    });
-    for (const itemName of consumerItems) {
-        const items = result.Items[itemName];
-        assert.ok(Array.isArray(items), `Missing evaluated item list: ${itemName}`);
-        for (const item of items) {
-            assert.ok(!mirrors.includes(itemPath(consumer, item)),
-                `${itemName} must not publish/deploy the local mirror ${item.Identity}`);
+    write(join(published, 'symbols/fixture.pdb'), Buffer.from([0, 255, 13, 10, 128]));
+    write(join(published, 'dotnet.native.js.map'), '{"fixture":"native source map"}\n');
+    write(join(published, 'metadata/nested/runtime.json'), '{"fixture":"nested runtime metadata"}\n');
+    write(join(isolated, 'wwwroot/static/nested/asset.bin'), Buffer.from([0, 1, 2, 255]));
+    // Use real tsc output to test maps and declarations as well as handwritten static files.
+    const tsconfig = JSON.parse(readFileSync(join(isolated, 'tsconfig.json'), 'utf8'));
+    tsconfig.compilerOptions.sourceMap = true;
+    tsconfig.compilerOptions.declaration = true;
+    tsconfig.compilerOptions.declarationMap = true;
+    write(join(isolated, 'tsconfig.json'), JSON.stringify(tsconfig, null, 2));
+    const handwritten = new Map(['main.ts', 'sample-diagnostics.ts'].map(name => {
+        return [name, readFileSync(join(isolated, 'web', name))];
+    }));
+    const inputs = [published, join(isolated, 'wwwroot'), compiled];
+    function assertSite() {
+        const expected = new Map();
+        for (const input of inputs) {
+            for (const [name, contents] of snapshot(input)) {
+                assert.ok(!expected.has(name), `Unexpected fixture collision: ${name}`);
+                expected.set(name, contents);
+            }
         }
-        if (itemName === '_NoneWithTargetPath') {
-            assert.ok(items.some(item => {
-                return itemPath(consumer, item) === consumer.sentinel;
-            }), 'A matching filename outside MauiBrowserAssetsDirectory must remain in None');
+        assert.deepEqual(snapshot(site), expected, 'The site must preserve EVERY input file byte-for-byte');
+        assert.ok(!existsSync(join(isolated, 'artifacts/site-staging')), 'Staging must be cleaned');
+    }
+
+    await npm(isolated, 'ci', '--ignore-scripts', '--no-audit');
+    assert.ok(existsSync(join(isolated, 'node_modules/typescript/package.json')));
+    assert.ok(!existsSync(join(isolated, 'BrowserSample.csproj')),
+        'Frontend fixture intentionally has no .NET project, source checkout or NuGet asset graph');
+    await npm(isolated, 'run', 'prepare:maui-bridge');
+    assertAssets(join(isolated, 'web'), published);
+    assert.deepEqual(readdirSync(join(isolated, 'web')).sort(), [...assetNames, ...handwritten.keys()].sort(),
+        'Preparation supplies exactly the three public resources, not native/runtime files');
+    for (const [name, contents] of handwritten) {
+        assert.deepEqual(readFileSync(join(isolated, 'web', name)), contents);
+    }
+    // build:ts must prepare again, not rely on a previous explicit prepare:maui-bridge.
+    rmSync(join(isolated, 'web/maui-browser.d.ts'));
+    await npm(isolated, 'run', 'build:ts');
+    assertAssets(join(isolated, 'web'), published);
+    const beforeCheck = snapshot(compiled);
+    await npm(isolated, 'run', 'check');
+    assert.deepEqual(snapshot(compiled), beforeCheck, 'check must not emit or clear TypeScript output');
+    for (const name of ['main.js', 'main.js.map', 'main.d.ts', 'main.d.ts.map', 'sample-diagnostics.js']) {
+        assert.ok(existsSync(join(compiled, name)), `Missing real TypeScript output: ${name}`);
+    }
+    assert.match(readFileSync(join(compiled, 'main.js'), 'utf8'), /from ['"]\.\/maui-browser\.js['"]/u);
+    const diagnosticsUrl = pathToFileURL(join(compiled, 'sample-diagnostics.js'));
+    const diagnostics = await import(diagnosticsUrl.href);
+    assert.deepEqual(Object.keys(diagnostics).sort(),
+        ['afterNextFrame', 'getDownloadedWasmSize', 'getWasmUrl', 'openExternal'].sort());
+    assert.equal(diagnostics.getWasmUrl(), new URL('./dotnet.native.wasm', diagnosticsUrl).href);
+
+    await npm(isolated, 'run', 'build:site');
+    assertSite();
+    // A second build must remove obsolete TS output AND obsolete final-site files.
+    write(join(isolated, 'web/obsolete.ts'), 'export const obsolete = true;\n');
+    write(join(published, 'metadata/obsolete.json'), '{}\n');
+    write(join(isolated, 'wwwroot/static/obsolete.css'), '/* old static asset */\n');
+    await npm(isolated, 'run', 'build:ts');
+    await npm(isolated, 'run', 'build:site');
+    assert.ok(existsSync(join(site, 'obsolete.js')));
+    rmSync(join(isolated, 'web/obsolete.ts'));
+    rmSync(join(published, 'metadata/obsolete.json'));
+    rmSync(join(isolated, 'wwwroot/static/obsolete.css'));
+    write(join(site, 'stale-site-only.txt'), 'Must disappear on successful assembly\n');
+    await npm(isolated, 'run', 'build:ts');
+    assert.ok(!existsSync(join(compiled, 'obsolete.js')), 'build:ts must clear stale compiler output');
+    assert.ok(!existsSync(join(compiled, 'obsolete.d.ts.map')), 'No stale declaration maps');
+    await npm(isolated, 'run', 'build:site');
+    assertSite();
+
+    // Validate all three prepare inputs BEFORE modifying editor resources or TS output.
+    for (const missing of assetNames) {
+        const path = join(published, missing);
+        const saved = readFileSync(path);
+        for (const name of assetNames) {
+            write(join(isolated, 'web', name), Buffer.concat([
+                readFileSync(join(published, name)), Buffer.from('\n// Previous editor resource fixture\n'),
+            ]));
         }
-        // SDKs may omit Content items from None; Content and the native deploy list
-        // must both retain the app's own files while filtering only the three mirrors.
-        if (itemName !== '_NoneWithTargetPath') {
-            for (const appFile of consumer.appFiles) {
-                assert.ok(items.some(item => {
-                    return itemPath(consumer, item) === appFile;
-                }), `${itemName} lost the app-owned file ${appFile}`);
+        const beforeWeb = snapshot(join(isolated, 'web'));
+        const beforeTs = snapshot(compiled);
+        const beforeSite = snapshot(site);
+        rmSync(path);
+        try {
+            await assert.rejects(npm(isolated, 'run', 'prepare:maui-bridge'), /Missing published MAUI asset/u);
+            await assert.rejects(npm(isolated, 'run', 'build:ts'), /Missing published MAUI asset/u);
+            assert.deepEqual(snapshot(join(isolated, 'web')), beforeWeb);
+            assert.deepEqual(snapshot(compiled), beforeTs);
+            assert.deepEqual(snapshot(site), beforeSite);
+        } finally {
+            write(path, saved);
+            for (const name of assetNames) {
+                copyFileSync(join(published, name), join(isolated, 'web', name));
             }
         }
     }
-}
-
-async function assertConsumerBuild(consumer, canonicalDirectory, cold) {
-    const args = ['msbuild', consumer.project, '-target:Build;AssignTargetPaths',
-        '-property:Configuration=Release', '-getProperty:TargetDir', `-getItem:${consumerItems.join(',')}`, '-nologo'];
-    if (cold) {
-        args.push('-restore');
-    }
-    const result = await runJson(args);
-    assertFiltered(consumer, result);
-    assertPrepared(consumer, canonicalDirectory);
-    const output = resolve(consumer.directory, result.Properties.TargetDir);
-    for (const name of assetNames) {
-        assert.deepEqual(readFileSync(join(output, name)), readFileSync(join(canonicalDirectory, name)));
-    }
-    const files = readdirSync(output, { recursive: true });
-    assert.ok(!files.some(name => {
-        return /Wasm\.FluentUIWebComponents\.CodeGen|Microsoft\.CodeAnalysis|Microsoft\.Build|BuildHost/u.test(name);
-    }), 'Build-only CodeGen, Roslyn and MSBuild dependencies must not reach the consumer output');
-
-    // Inspect the actual SDK publish item collector without invoking LLVM/native compilation.
-    // Keep reference negotiation in the same MSBuild invocation as publication collection.
-    const publish = await runJson(['msbuild', consumer.project, '-target:Build;GetCopyToPublishDirectoryItems',
-        '-property:Configuration=Release', '-getProperty:TargetDir',
-        '-getTargetResult:GetCopyToPublishDirectoryItems', '-nologo']);
-    const items = publish.TargetResults.GetCopyToPublishDirectoryItems.Items;
-    assert.ok(Array.isArray(items), 'The SDK publish collector must return its actual items');
-    for (const name of assetNames) {
-        const matches = items.filter(item => {
-            return item.TargetPath?.replaceAll('\\', '/') === name;
-        });
-        assert.equal(matches.length, 1, `${name} must have exactly one logical publish destination`);
-        assert.equal(itemPath(consumer, matches[0]), resolve(canonicalDirectory, name),
-            `${name} must publish from its canonical provider, not the editor mirror`);
-    }
-    for (const item of items) {
-        for (const name of assetNames) {
-            assert.notEqual(itemPath(consumer, item), join(consumer.assets, name),
-                `Publish collector retained the local mirror ${item.Identity}`);
+    for (const [input, names] of [[published, [...assetNames, ...nativeNames]], [compiled, appScripts],
+        [join(isolated, 'wwwroot'), ['index.html']]]) {
+        for (const missing of names) {
+            const path = join(input, missing);
+            const saved = readFileSync(path);
+            const previousSite = snapshot(site);
+            rmSync(path);
+            try {
+                await assert.rejects(npm(isolated, 'run', 'build:site'), /Missing published MAUI asset|Missing compiled application script|ENOENT/u);
+                assert.deepEqual(snapshot(site), previousSite, `${missing}: failure must preserve the complete previous site`);
+            } finally {
+                write(path, saved);
+            }
         }
     }
-    for (const appFile of consumer.appFiles) {
-        assert.ok(items.some(item => {
-            return itemPath(consumer, item) === appFile;
-        }), `Publish collector lost the app-owned file ${appFile}`);
-    }
-}
-
-async function exerciseConsumer(consumer, canonicalDirectory, { prepareWithoutRestore = false } = {}) {
-    for (const name of assetNames) {
-        assert.ok(!existsSync(join(consumer.assets, name)), 'The consumer must start without generated assets');
-    }
-    if (prepareWithoutRestore) {
-        const consumerRestore = join(consumer.directory, 'obj/project.assets.json');
-        assert.ok(!existsSync(consumerRestore));
-        await run(['msbuild', consumer.project, '-target:PrepareMauiBrowserAssets',
-            '-property:Configuration=Release', '-nologo']);
-        assertPrepared(consumer, canonicalDirectory);
-        assert.ok(!existsSync(consumerRestore), 'Explicit preparation must not require a consumer restore');
-        // Return to a cold filesystem so Check proves build-time preparation as well.
-        for (const name of assetNames) {
-            rmSync(join(consumer.assets, name));
+    // Exercise every pair of owners, including nested files and file/directory clashes.
+    for (const [owner, name] of [[join(isolated, 'wwwroot'), 'dotnet.js'],
+        [compiled, 'maui-browser.js'], [join(isolated, 'wwwroot'), 'main.js'],
+        [join(isolated, 'wwwroot'), 'metadata/nested/runtime.json'],
+        [join(isolated, 'wwwroot'), 'symbols']]) {
+        const path = join(owner, name);
+        assert.ok(!existsSync(path), `Collision fixture must not overwrite an existing input: ${path}`);
+        const previousSite = snapshot(site);
+        write(path, 'Deliberate conflicting fixture file\n');
+        try {
+            await assert.rejects(npm(isolated, 'run', 'build:site'), /EEXIST|EISDIR|ENOTDIR/u);
+            assert.deepEqual(snapshot(site), previousSite, `Collision ${name} must not destroy the previous site`);
+            assert.ok(!existsSync(join(isolated, 'artifacts/site-staging')), 'Failed assembly must clean staging');
+        } finally {
+            rmSync(path);
         }
     }
-    await assertConsumerBuild(consumer, canonicalDirectory, true);
-    // Re-evaluation now includes warm Content, None and WasmExtraFilesToDeploy globs.
-    await assertConsumerBuild(consumer, canonicalDirectory, false);
-    rmSync(join(consumer.assets, 'maui-browser.d.ts'));
-    await run(['msbuild', consumer.project, '-target:PrepareMauiBrowserAssets',
-        '-property:Configuration=Release', '-nologo']);
-    assertPrepared(consumer, canonicalDirectory);
+    await npm(isolated, 'run', 'build:site');
+    assertSite();
+
+    // Inject a rename error at each promotion boundary; the filesystem and rollback are real.
+    for (const blocked of ['wwwroot', 'site-staging']) {
+        const injection = join(isolated, 'fail-site-promotion.mjs');
+        write(injection, `import fs from 'node:fs/promises';
+import { syncBuiltinESMExports } from 'node:module';
+import { basename } from 'node:path';
+const rename = fs.rename;
+fs.rename = async function (source, destination) {
+    if (basename(source) === ${JSON.stringify(blocked)}) {
+        const error = new Error('Injected site promotion failure');
+        error.code = 'EACCES';
+        throw error;
+    }
+    return await rename(source, destination);
+};
+syncBuiltinESMExports();
+await import('./scripts/build-site.mjs');
+`);
+        const previousSite = snapshot(site);
+        await assert.rejects(command(process.execPath, [injection], isolated), /Injected site promotion failure/u);
+        assert.deepEqual(snapshot(site), previousSite, 'Promotion failure must preserve or restore the previous site');
+        assert.ok(!existsSync(join(isolated, 'artifacts/site-staging')));
+        assert.ok(!readdirSync(join(isolated, 'artifacts')).some(name => {
+            return name.startsWith('site-backup-');
+        }), 'Successful rollback must leave no backup directory');
+    }
 }
 
-test('clean builds, configuration isolation, incremental output and build-only consumer reference', async t => {
+test('clean builds, configuration isolation, incremental contract and real managed publish consumers', async t => {
     mkdirSync(join(root, 'artifacts'), { recursive: true });
-    const temporary = mkdtempSync(join(root, 'artifacts/interop-build-'));
-    t.after(() => {
-        rmSync(temporary, { recursive: true, force: true });
-    });
+    const temporary = temporaryDirectory(t, join(root, 'artifacts/interop-build-'));
     const release = await directory('Release');
     const debug = await directory('Debug');
     assert.notEqual(release, debug);
-    // Clean only this product's build outputs; no source or published app is touched.
     await run(['clean', project, '-c', 'Release', '--nologo']);
     await run(['clean', project, '-c', 'Debug', '--nologo']);
     await run(['restore', project, '-property:RestoreLockedMode=true', '--nologo']);
+    // Bootstrap dependencies once before parallel configurations; simultaneous cold
+    // npm ci calls are not a supported fixture and would race on shared node_modules.
+    await run(['msbuild', project, '-target:RestoreBrowserDependencies', '-nologo']);
     await Promise.all(['Debug', 'Release'].map(configuration => {
         return run(['build', project, '-c', configuration, '--no-restore', '--nologo']);
     }));
-
     for (const path of [release, debug]) {
-        for (const name of ['maui-browser.js', 'maui-browser.d.ts', 'dotnet.d.ts']) {
+        for (const name of assetNames) {
             assert.ok(existsSync(join(path, 'wwwroot', name)), `Missing ${path}/${name}`);
         }
-        const declarations = readFileSync(join(path, 'wwwroot/maui-browser.d.ts'), 'utf8');
-        assert.doesNotMatch(declarations, /#browser-interop|contracts\.g|components\/define/u);
+        assert.doesNotMatch(readFileSync(join(path, 'wwwroot/maui-browser.d.ts'), 'utf8'),
+            /#browser-interop|contracts\.g|components\/define/u);
     }
     const generator = join(root, 'tools/Wasm.FluentUIWebComponents.CodeGen/bin/Release/net10.0/Wasm.FluentUIWebComponents.CodeGen.dll');
     const debugContract = join(temporary, 'debug.g.ts');
@@ -255,71 +420,50 @@ test('clean builds, configuration isolation, incremental output and build-only c
     const modified = statSync(contract).mtimeMs;
     await run(['build', project, '-c', 'Release', '--no-restore', '--nologo']);
     assert.equal(readFileSync(contract, 'utf8'), content);
-    assert.equal(statSync(contract).mtimeMs, modified);
+    assert.equal(statSync(contract).mtimeMs, modified, 'Unchanged generation must retain its timestamp');
+    const npmPackage = join(root, 'node_modules/typescript/package.json');
+    const npmModified = statSync(npmPackage).mtimeMs;
     await run(['clean', project, '-c', 'Debug', '--nologo']);
     assert.ok(existsSync(contract), 'Cleaning Debug must not remove shared generated source');
-    assert.ok(existsSync(join(release, 'wwwroot/maui-browser.js')));
-
-    // A compile-only browser consumer does not need a native LLVM compiler host.
-    // It verifies the same ProjectReference content-copy path used by applications.
-    const consumer = join(temporary, 'Consumer.csproj');
-    writeFileSync(consumer, `<Project Sdk="Microsoft.NET.Sdk">
-  <ItemGroup>
-    <ProjectReference Include="${xml(project)}" />
-  </ItemGroup>
-</Project>\n`);
-    await run(['build', consumer, '-c', 'Release', '--nologo']);
-    const output = join(temporary, 'bin/Release/net10.0/browser-wasm');
-    const files = readdirSync(output, { recursive: true });
-    assert.ok(files.includes('maui-browser.js'));
-    assert.ok(files.includes('maui-browser.d.ts'));
-    assert.ok(files.includes('dotnet.d.ts'));
-    assert.ok(!files.some(name => {
-        return /Wasm\.FluentUIWebComponents\.CodeGen|Microsoft\.CodeAnalysis|Microsoft\.Build|BuildHost/u.test(name);
-    }), 'The generator and Roslyn must not be copied to a consumer');
-    assert.equal(readFileSync(join(output, 'maui-browser.js'), 'utf8'),
-        readFileSync(join(release, 'wwwroot/maui-browser.js'), 'utf8'));
+    assert.ok(!existsSync(join(debug, 'wwwroot/maui-browser.js')), 'Clean must remove configuration-specific assets');
+    assert.ok(existsSync(join(release, 'wwwroot/maui-browser.js')), 'Clean must not remove other configurations');
+    assert.equal(statSync(npmPackage).mtimeMs, npmModified, 'Clean must retain restored product npm dependencies');
 
     const designTime = join(temporary, 'design-time');
-    await run(['msbuild', project, '-target:GenerateBrowserInterop', '-property:DesignTimeBuild=true',
-        `-property:BrowserBuildDirectory=${designTime}`, '-nologo']);
-    assert.ok(!existsSync(designTime), 'Design-time generation must be skipped');
+    await run(['msbuild', project, '-target:RestoreBrowserDependencies;GenerateBrowserInterop;BuildBrowserAssets',
+        '-property:DesignTimeBuild=true', `-property:BrowserBuildDirectory=${designTime}`, '-nologo']);
+    assert.ok(!existsSync(designTime), 'Design-time browser generation/build must be skipped');
 
-    // Keep all consumer scenarios after the initial builds/cleans, never in parallel.
-    await t.test('source opt-in assets in a relative directory with spaces', async () => {
-        const sourceConsumer = createConsumer(temporary, 'source-consumer', {
-            assetsDirectory: 'web source',
-            reference: `    <ProjectReference Include="${xml(project)}" />`,
-            explicitImport: true,
-        });
-        await exerciseConsumer(sourceConsumer, join(release, 'wwwroot'), { prepareWithoutRestore: true });
+    const sourceConsumer = createConsumer(temporary, 'source consumer', {
+        reference: `    <ProjectReference Include="${xml(project)}" />`,
     });
-
-    await t.test('real local package auto-imports buildTransitive assets', async () => {
+    let sourcePaths;
+    await t.test('source ProjectReference publishes canonical Content without any explicit import', async () => {
+        sourcePaths = await exerciseConsumer(sourceConsumer, join(release, 'wwwroot'));
+    });
+    await t.test('real local package restores and publishes identical buildTransitive Content', async () => {
         const metadata = await runJson(['msbuild', project, '-property:Configuration=Release',
             '-getProperty:PackageId,ProjectAssetsFile', '-nologo']);
         const packageId = metadata.Properties.PackageId;
-        assert.ok(packageId, 'The backend must expose its actual PackageId');
+        assert.ok(packageId);
         const version = `0.0.0-browser-assets.${randomUUID()}`;
         const feed = join(temporary, 'feed');
         mkdirSync(feed);
         await run(['pack', project, '--no-build', '--no-restore', '-c', 'Release',
             '-p:IsPackable=true', `-p:PackageVersion=${version}`, '-o', feed, '--nologo']);
-        assert.ok(existsSync(join(feed, `${packageId}.${version}.nupkg`)), 'A real fixture package must be produced');
-
+        assert.ok(existsSync(join(feed, `${packageId}.${version}.nupkg`)));
         const backendAssets = JSON.parse(readFileSync(resolve(backend, metadata.Properties.ProjectAssetsFile), 'utf8'));
         const fallbackFolders = Object.keys(backendAssets.packageFolders);
-        assert.ok(fallbackFolders.length > 0, 'Reuse the restored backend dependency folders');
+        assert.ok(fallbackFolders.length > 0);
         const packages = join(temporary, 'packages');
-        const packageConsumer = createConsumer(temporary, 'package-consumer', {
-            assetsDirectory: 'wwwroot',
+        const packageConsumer = createConsumer(temporary, 'package consumer', {
             reference: `    <PackageReference Include="${xml(packageId)}" Version="${xml(version)}" />`,
             properties: `    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
     <RestorePackagesPath>${xml(packages)}</RestorePackagesPath>
     <RestoreFallbackFolders>${xml(fallbackFolders.join(';'))}</RestoreFallbackFolders>`,
         });
-        // No clear: inherit the approved parent feeds/mappings, adding only our exact test ID.
-        writeFileSync(join(packageConsumer.directory, 'NuGet.config'), `<configuration>
+        // Keep the approved parent feeds/mappings; add only the unique fixture ID.
+        write(join(packageConsumer.directory, 'NuGet.config'), `<configuration>
   <packageSources>
     <add key="browser-assets-test" value="${xml(feed)}" />
   </packageSources>
@@ -330,124 +474,133 @@ test('clean builds, configuration isolation, incremental output and build-only c
   </packageSourceMapping>
 </configuration>\n`);
         const packageDirectory = join(packages, packageId.toLowerCase(), version);
-        assert.ok(!existsSync(packageDirectory), 'The unique test package must not come from a stale cache');
-        await exerciseConsumer(packageConsumer, join(packageDirectory, 'browser-assets'));
-
+        assert.ok(!existsSync(packageDirectory), 'Do not satisfy the fixture package from stale cache');
+        const packagePaths = await exerciseConsumer(packageConsumer, join(packageDirectory, 'browser-assets'));
+        assert.deepEqual(packagePaths, sourcePaths, 'Source and package publish filenames must be identical');
         const restored = JSON.parse(readFileSync(join(packageConsumer.directory, 'obj/project.assets.json'), 'utf8'));
-        assert.equal(restored.libraries[`${packageId}/${version}`]?.type, 'package',
-            'The consumer must resolve the exact package, not a project reference');
+        assert.equal(restored.libraries[`${packageId}/${version}`]?.type, 'package');
         const packageMetadata = JSON.parse(readFileSync(join(packageDirectory, '.nupkg.metadata'), 'utf8'));
-        assert.equal(resolve(packageMetadata.source), resolve(feed), 'The fixture must restore from its local feed');
+        assert.equal(resolve(packageMetadata.source), resolve(feed), 'Restore must use the isolated local feed');
         const imports = readFileSync(join(packageConsumer.directory, 'obj/Consumer.csproj.nuget.g.targets'), 'utf8');
-        assert.ok(imports.includes('buildTransitive'), 'NuGet must generate the transitive target import');
-        assert.ok(imports.includes('Microsoft.Maui.Platforms.Wasm.FluentUIWebComponents.targets'));
-        for (const name of assetNames) {
-            assert.deepEqual(readFileSync(join(packageDirectory, 'browser-assets', name)),
-                readFileSync(join(release, 'wwwroot', name)), `The real package must contain canonical ${name}`);
-        }
+        assert.match(imports, /buildTransitive/u);
+        assert.match(imports, /Microsoft\.Maui\.Platforms\.Wasm\.FluentUIWebComponents\.targets/u);
+        assertAssets(join(packageDirectory, 'browser-assets'), join(release, 'wwwroot'));
+        assertAssets(packageConsumer.published, sourceConsumer.published);
+    });
+    await t.test('isolated sample frontend assembles complete publish output without source/cache queries', async frontendTest => {
+        await exerciseFrontend(frontendTest, sourceConsumer.published);
     });
 });
 
-test('TypeScript sample registers cold outputs and emits them before native deployment', async t => {
-    const sample = join(root, 'samples/BrowserSample');
-    const sampleProject = join(sample, 'BrowserSample.csproj');
-    const scripts = ['main.js', 'sample-diagnostics.js'];
-    const saved = new Map(scripts.map(name => {
-        const path = join(sample, 'wwwroot', name);
-        return [path, existsSync(path) ? readFileSync(path) : undefined];
-    }));
-    t.after(() => {
-        for (const [path, contents] of saved) {
-            if (contents === undefined) {
-                rmSync(path, { force: true });
-            } else {
-                writeFileSync(path, contents);
-            }
-        }
-    });
-    for (const path of saved.keys()) {
-        rmSync(path, { force: true });
+test('standard backend build restores npm and generates all assets in a cold source fixture', async t => {
+    const checkout = temporaryDirectory(t, join(tmpdir(), 'fluent-backend-cold-'));
+    const product = join(checkout, 'platforms/Wasm.FluentUIWebComponents');
+    const repository = resolve(root, '../..');
+    for (const name of ['Directory.Packages.props', 'eng/Versions.props']) {
+        write(join(checkout, name), readFileSync(join(repository, name)));
     }
-    const expected = ['wwwroot/index.html', ...scripts.map(name => {
-        return `wwwroot/${name}`;
-    })].sort();
-    const assertDeployItems = result => {
-        const items = result.Items.WasmExtraFilesToDeploy.map(item => {
-            return item.Identity.replaceAll('\\', '/');
-        }).sort();
-        assert.deepEqual(items, expected, 'Only app HTML and emitted JS should use native extra-file deployment');
-    };
-    // Evaluation must register JS paths even before tsc has created those files.
-    const cold = await runJson(['msbuild', sampleProject,
-        '-getItem:WasmExtraFilesToDeploy', '-nologo']);
-    assertDeployItems(cold);
-    await run(['restore', project, '--locked-mode', '--nologo']);
-    for (const phase of ['cold', 'warm']) {
-        // This target needs the backend, not the sample's native compiler-host package.
-        const built = await runJson(['msbuild', sampleProject, '-target:BuildBrowserBootstrap',
-            '-property:Configuration=Release', '-getItem:WasmExtraFilesToDeploy,FileWrites', '-nologo']);
-        assertDeployItems(built);
-        for (const name of scripts) {
-            const path = join(sample, 'wwwroot', name);
-            assert.ok(existsSync(path), `${phase} build did not emit ${name}`);
-            assert.ok(built.Items.FileWrites.some(item => {
-                return resolve(sample, item.Identity) === path;
-            }), `Clean must know about generated ${name}`);
-        }
+    for (const name of ['Directory.Build.props', 'Directory.Build.targets', 'global.json',
+        'NuGet.config', 'package.json', 'package-lock.json']) {
+        write(join(product, name), readFileSync(join(root, name)));
     }
-    runTypeScript(['--project', join(sample, 'tsconfig.json'), '--noEmit'], { cwd: sample, packageRoot: sample });
-    const diagnosticsUrl = pathToFileURL(join(sample, 'wwwroot/sample-diagnostics.js'));
-    const diagnostics = await import(diagnosticsUrl.href);
-    assert.deepEqual(Object.keys(diagnostics).sort(),
-        ['afterNextFrame', 'getDownloadedWasmSize', 'getWasmUrl', 'openExternal'].sort());
-    assert.equal(diagnostics.getWasmUrl(), new URL('./dotnet.native.wasm', diagnosticsUrl).href);
-    assert.match(readFileSync(join(sample, 'wwwroot/main.js'), 'utf8'), /from ['"]\.\/maui-browser\.js['"]/u);
-});
-
-test('sample frontend scripts work outside the checkout with their own npm installation', async t => {
-    const sample = join(root, 'samples/BrowserSample');
-    const isolated = mkdtempSync(join(tmpdir(), 'fluent-browser-sample-'));
-    t.after(() => {
-        rmSync(isolated, { recursive: true, force: true });
-    });
-    mkdirSync(join(isolated, 'web'));
-    for (const name of ['package.json', 'package-lock.json', '.gitignore', 'tsconfig.json']) {
-        copyFileSync(join(sample, name), join(isolated, name));
+    for (const name of ['build-web.mjs', 'prepare-types.mjs', 'typescript-cli.mjs']) {
+        write(join(product, 'scripts', name), readFileSync(join(root, 'scripts', name)));
     }
-    // Public assets are supplied by the backend, just as with a restored NuGet package.
-    const assets = join(await directory('Release'), 'wwwroot');
-    for (const name of assetNames) {
-        copyFileSync(join(assets, name), join(isolated, 'web', name));
-    }
-    for (const name of ['main.ts', 'sample-diagnostics.ts']) {
-        copyFileSync(join(sample, 'web', name), join(isolated, 'web', name));
-    }
-    for (const args of [['ci', '--ignore-scripts', '--no-audit'], ['run', 'build'], ['run', 'check']]) {
-        await new Promise((resolveResult, reject) => {
-            const child = spawn('npm', args, {
-                cwd: isolated, shell: process.platform === 'win32', stdio: ['ignore', 'pipe', 'pipe'],
-            });
-            let output = '';
-            child.stdout.on('data', chunk => {
-                output += chunk;
-            });
-            child.stderr.on('data', chunk => {
-                output += chunk;
-            });
-            child.on('error', reject);
-            child.on('close', code => {
-                if (code === 0) {
-                    resolveResult();
-                } else {
-                    reject(new Error(`Isolated npm ${args.join(' ')} failed: ${output}`));
-                }
-            });
+    for (const name of ['src/Wasm.FluentUIWebComponents', 'tools']) {
+        cpSync(join(root, name), join(product, name), {
+            recursive: true,
+            filter(source) {
+                return !['bin', 'obj', 'generated', 'node_modules', 'dotnet.d.ts'].includes(basename(source));
+            },
         });
     }
-    assert.ok(existsSync(join(isolated, 'node_modules/typescript/package.json')));
-    assert.deepEqual(readdirSync(join(isolated, 'wwwroot')).sort(), ['main.js', 'sample-diagnostics.js']);
-    const paths = await runJson(['msbuild', join(sample, 'BrowserSample.csproj'),
-        '-getProperty:SiteDirectory,SiteArchive', '-nologo']);
-    assert.equal(resolve(paths.Properties.SiteDirectory), join(sample, 'artifacts/wwwroot'));
-    assert.equal(resolve(paths.Properties.SiteArchive), join(sample, 'artifacts/BrowserSample-site.zip'));
+    const relativeProject = 'src/Wasm.FluentUIWebComponents/Wasm.FluentUIWebComponents.csproj';
+    const copiedBackend = join(product, 'src/Wasm.FluentUIWebComponents');
+    const npmLock = readFileSync(join(product, 'package-lock.json'));
+    assert.ok(!existsSync(join(product, 'node_modules')));
+    assert.ok(!existsSync(join(copiedBackend, 'obj')));
+    assert.ok(!existsSync(join(copiedBackend, 'web/generated/contracts.g.ts')));
+    // No prior restore, npm command or special environment-variable assignment.
+    await command(dotnet, ['build', relativeProject, '-c', 'Release', '--nologo'], product);
+    assert.ok(existsSync(join(product, 'node_modules/typescript/package.json')));
+    assert.ok(existsSync(join(copiedBackend, 'web/generated/contracts.g.ts')));
+    const output = join(copiedBackend, 'bin/Release/net10.0/browser-wasm');
+    assertAssets(output, join(copiedBackend, 'obj/browser/Release/net10.0/browser-wasm/wwwroot'));
+    assert.ok(existsSync(join(output, 'Microsoft.Maui.Platforms.Wasm.FluentUIWebComponents.dll')));
+    assertNoTools(output);
+    assert.deepEqual(readFileSync(join(product, 'package-lock.json')), npmLock, 'npm ci must not rewrite the lockfile');
+});
+
+test('backend dependency restore target installs only when absent and skips design-time', async t => {
+    const source = readFileSync(project, 'utf8');
+    const target = source.match(/<Target\s+Name="RestoreBrowserDependencies"[\s\S]*?<\/Target>/u)?.[0];
+    assert.ok(target, 'The backend must expose automatic npm dependency restore');
+    assert.match(source, /<Target\s+Name="BuildBrowserAssets"[^>]*DependsOnTargets="RestoreBrowserDependencies;GenerateBrowserInterop"/u);
+    assert.match(target, /Command="npm ci"/u);
+    // Execute the production target verbatim in a tiny, dependency-free fixture.
+    // This tests its condition and working directory, NOT a full cold backend build.
+    const isolated = temporaryDirectory(t, join(tmpdir(), 'fluent-browser-restore-'));
+    const fixtureProject = join(isolated, 'src/backend/Restore.proj');
+    write(fixtureProject, `<Project>\n${target}\n</Project>\n`);
+    write(join(isolated, 'package.json'), JSON.stringify({
+        name: 'browser-restore-fixture', version: '1.0.0', private: true,
+        scripts: { postinstall: 'node install.mjs' },
+    }, null, 2));
+    write(join(isolated, 'package-lock.json'), JSON.stringify({
+        name: 'browser-restore-fixture', version: '1.0.0', lockfileVersion: 3, requires: true,
+        packages: { '': { name: 'browser-restore-fixture', version: '1.0.0', hasInstallScript: true } },
+    }, null, 2));
+    write(join(isolated, 'install.mjs'), `import { appendFileSync, mkdirSync } from 'node:fs';
+appendFileSync('restores.log', 'restore\\n');
+mkdirSync('node_modules', { recursive: true });
+`);
+    const args = ['msbuild', fixtureProject, '-target:RestoreBrowserDependencies', '-nologo'];
+    await run([...args, '-property:DesignTimeBuild=true']);
+    assert.ok(!existsSync(join(isolated, 'restores.log')), 'Design-time must not invoke npm even when dependencies are absent');
+    await run(args);
+    assert.equal(readFileSync(join(isolated, 'restores.log'), 'utf8'), 'restore\n');
+    assert.ok(existsSync(join(isolated, 'node_modules')));
+    await run(args);
+    assert.equal(readFileSync(join(isolated, 'restores.log'), 'utf8'), 'restore\n', 'Warm builds must not run npm ci');
+    rmSync(join(isolated, 'node_modules'), { recursive: true });
+    await run(args);
+    assert.equal(readFileSync(join(isolated, 'restores.log'), 'utf8'), 'restore\nrestore\n');
+});
+
+test('sample MSBuild only publishes MAUI; npm owns preparation, TypeScript and site assembly', async () => {
+    const sampleProject = join(sample, 'BrowserSample.csproj');
+    const source = readFileSync(sampleProject, 'utf8');
+    assert.doesNotMatch(source, /<Import\b|<Exec\b|WasmExtraFilesToDeploy|BrowserSampleJavaScript|BrowserSampleTypeScript/u);
+    const properties = await runJson(['msbuild', sampleProject,
+        '-getProperty:PublishDir,SiteDirectory,SiteArchive', '-getItem:WasmExtraFilesToDeploy,Content', '-nologo']);
+    assert.equal(resolve(properties.Properties.PublishDir), join(sample, 'artifacts/maui'));
+    assert.equal(resolve(properties.Properties.SiteDirectory), join(sample, 'artifacts/wwwroot'));
+    assert.equal(resolve(properties.Properties.SiteArchive), join(sample, 'artifacts/BrowserSample-site.zip'));
+    assert.deepEqual(properties.Items.WasmExtraFilesToDeploy, [], 'Evaluation must not register frontend deployment items');
+    assert.deepEqual(properties.Items.Content, [], 'The sample must not publish its frontend through MSBuild Content');
+    const evaluated = await run(['msbuild', sampleProject, '-preprocess', '-nologo']);
+    assert.doesNotMatch(evaluated, /<Target\s+Name="(?:BuildBrowserBootstrap|PrepareMauiBrowserAssets|GetMauiBrowserAssets|BuildBrowserAssets|RestoreBrowserDependencies)"/u);
+    assert.doesNotMatch(evaluated, /<Exec\b[^>]*Command="[^"\n]*npm\b/u);
+    assert.doesNotMatch(evaluated, /buildTransitive[/\\]Microsoft\.Maui\.Platforms\.Wasm\.FluentUIWebComponents\.targets/u,
+        'The source sample must not import package/source resource targets');
+    const packaged = readFileSync(consumerTargets, 'utf8');
+    assert.doesNotMatch(packaged, /<Target\b|<Exec\b|Remove=|MauiBrowserAssetsDirectory/u,
+        'Package assets must be plain Content, not a second preparation/filter pipeline');
+    const manifest = JSON.parse(readFileSync(join(sample, 'package.json'), 'utf8'));
+    assert.equal(manifest.scripts.build, 'npm run build:maui-app && npm run build:ts && npm run build:site');
+    assert.equal(manifest.scripts['build:maui-app'], 'dotnet publish BrowserSample.csproj');
+    assert.equal(manifest.scripts['prepare:maui-bridge'], 'node scripts/prepare-maui.mjs');
+    assert.equal(manifest.scripts['build:ts'], 'npm run prepare:maui-bridge && tsc --project tsconfig.json');
+    assert.equal(manifest.scripts['build:site'], 'node scripts/build-site.mjs');
+    assert.equal(manifest.scripts.check, 'tsc --project tsconfig.json --noEmit');
+    const tsconfig = JSON.parse(readFileSync(join(sample, 'tsconfig.json'), 'utf8'));
+    assert.equal(tsconfig.compilerOptions.rootDir, 'web');
+    assert.equal(tsconfig.compilerOptions.outDir, 'artifacts/typescript');
+    assert.equal(tsconfig.compilerOptions.rootDirs, undefined);
+    assert.equal(tsconfig.compilerOptions.paths, undefined);
+    for (const name of ['prepare-maui.mjs', 'build-site.mjs']) {
+        assert.doesNotMatch(readFileSync(join(sample, 'scripts', name), 'utf8'),
+            /node:child_process|ProjectAssetsFile|project\.assets\.json|BrowserBuildDirectory|\.nuget|GetMauiBrowserAssets|PrepareMauiBrowserAssets|src\/Wasm\.FluentUIWebComponents/u,
+            'Frontend scripts must consume published files, never query source builds or NuGet caches');
+    }
 });

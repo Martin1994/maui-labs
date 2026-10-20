@@ -4,11 +4,12 @@
     "private": true,
     "type": "module",
     "scripts": {
-        "build": "tsc --project tsconfig.json",
+        "build": "npm run build:maui-app && npm run build:ts && npm run build:site",
         "check": "tsc --project tsconfig.json --noEmit",
-        "prepare:browser": "dotnet msbuild BrowserSample.csproj -target:PrepareMauiBrowserAssets -property:Configuration=Release",
-        "build:browser": "dotnet msbuild BrowserSample.csproj -target:BuildBrowserBootstrap -property:Configuration=Release",
-        "publish:site": "dotnet publish BrowserSample.csproj",
+        "prepare:maui-bridge": "node scripts/prepare-maui-bridge.mjs",
+        "build:maui-app": "dotnet publish BrowserSample.csproj",
+        "build:ts": "npm run prepare:maui-bridge && tsc --project tsconfig.json",
+        "build:site": "node scripts/build-site.mjs",
         "package:site": "dotnet msbuild BrowserSample.csproj -target:PackageSite"
     },
     "devDependencies": {

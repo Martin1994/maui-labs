@@ -3,7 +3,9 @@
     <OutputType>Exe</OutputType>
     <AssemblyName>FluentBrowserSample</AssemblyName>
     <RootNamespace>FluentBrowserSample</RootNamespace>
-    <MauiBrowserAssetsDirectory>$(MSBuildProjectDirectory)/web</MauiBrowserAssetsDirectory>
+    <!-- NativeAOT LLVM supplies its own toolchain, not the SDK's wasm-tools workload. -->
+    <!-- See: https://github.com/dotnet/runtimelab/blob/527a565752062b20bb9693eea6c884b34ecce7bf/docs/using-nativeaot/compiling.md#adjust-the-project-configuration -->
+    <MSBuildEnableWorkloadResolver>false</MSBuildEnableWorkloadResolver>
     <SelfContained>true</SelfContained>
     <UseAppHost>false</UseAppHost>
     <InvariantGlobalization>true</InvariantGlobalization>
@@ -11,10 +13,9 @@
     <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
     <!-- The compiler runs on the SDK host; browser-wasm remains the app target. -->
     <NuGetLockFilePath>packages.$(NETCoreSdkPortableRuntimeIdentifier).lock.json</NuGetLockFilePath>
-    <!-- Publish and PackageSite share defaults regardless of the invoking shell. -->
-    <SiteDirectory Condition="'$(SiteDirectory)' == '' and '$(PublishDir)' != ''">$(PublishDir)</SiteDirectory>
+    <!-- .NET publishes only the MAUI module; npm assembles the complete site separately. -->
+    <PublishDir Condition="'$(PublishDir)' == ''">$(MSBuildProjectDirectory)/artifacts/maui/</PublishDir>
     <SiteDirectory Condition="'$(SiteDirectory)' == ''">$(MSBuildProjectDirectory)/artifacts/wwwroot</SiteDirectory>
-    <PublishDir Condition="'$(PublishDir)' == ''">$(SiteDirectory)/</PublishDir>
     <SiteArchive Condition="'$(SiteArchive)' == ''">$(MSBuildProjectDirectory)/artifacts/BrowserSample-site.zip</SiteArchive>
   </PropertyGroup>
   <ItemGroup>
@@ -23,23 +24,10 @@
     <PackageReference Include="runtime.$(NETCoreSdkPortableRuntimeIdentifier).Microsoft.DotNet.ILCompiler.LLVM" />
     <MauiXaml Include="**/*.xaml" Exclude="$(DefaultItemExcludes)" Inflator="SourceGen" />
     <UnmanagedEntryPointsAssembly Include="Microsoft.Maui.Platforms.Wasm.FluentUIWebComponents" />
-    <BrowserSampleTypeScript Include="web/**/*.ts" Exclude="web/**/*.d.ts" />
-    <!-- Register outputs from source names, not an output glob: they need not exist on the first build. -->
-    <BrowserSampleJavaScript Include="@(BrowserSampleTypeScript->'wwwroot/%(RecursiveDir)%(Filename).js')" />
-    <WasmExtraFilesToDeploy Include="wwwroot/*" Exclude="@(BrowserSampleJavaScript)" />
-    <WasmExtraFilesToDeploy Include="@(BrowserSampleJavaScript)" />
   </ItemGroup>
-  <Import Project="../../src/Wasm.FluentUIWebComponents/buildTransitive/Microsoft.Maui.Platforms.Wasm.FluentUIWebComponents.targets" />
-  <Target Name="BuildBrowserBootstrap" BeforeTargets="CoreCompile" DependsOnTargets="PrepareMauiBrowserAssets"
-          Condition="'$(DesignTimeBuild)' != 'true'">
-    <Exec WorkingDirectory="$(MSBuildProjectDirectory)" Command="npm run build" />
-    <ItemGroup>
-      <FileWrites Include="@(BrowserSampleJavaScript)" />
-    </ItemGroup>
-  </Target>
   <Target Name="PackageSite">
     <Error Condition="!Exists('$(SiteDirectory)')"
-           Text="Published site not found at '$(SiteDirectory)'. Publish BrowserSample first, or set SiteDirectory to an existing collected site." />
+           Text="Site not found at '$(SiteDirectory)'. Run npm run build first, or set SiteDirectory to an existing collected site." />
     <MakeDir Directories="$([System.IO.Path]::GetDirectoryName('$(SiteArchive)'))" />
     <ZipDirectory SourceDirectory="$(SiteDirectory)" DestinationFile="$(SiteArchive)" Overwrite="true" />
   </Target>

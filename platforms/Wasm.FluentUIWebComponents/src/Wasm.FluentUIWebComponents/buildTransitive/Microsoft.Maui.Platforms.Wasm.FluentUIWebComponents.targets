@@ -1,72 +1,10 @@
 <Project>
-  <!-- Source consumers explicitly import this file; PackageReference imports it from buildTransitive. -->
-  <PropertyGroup>
-    <_MauiBrowserSourceProject>$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)', '..', 'Wasm.FluentUIWebComponents.csproj'))</_MauiBrowserSourceProject>
-    <_MauiBrowserIsProject Condition="Exists('$(_MauiBrowserSourceProject)')">true</_MauiBrowserIsProject>
-    <_MauiBrowserPackageAssets>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '..', 'browser-assets'))</_MauiBrowserPackageAssets>
-    <_MauiBrowserDestination Condition="'$(MauiBrowserAssetsDirectory)' != ''">$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', '$(MauiBrowserAssetsDirectory)'))</_MauiBrowserDestination>
-  </PropertyGroup>
+  <!-- NuGet imports this file automatically. ProjectReference uses the backend's Content
+       directly; both providers expose the same filenames in the consumer's publish output. -->
   <ItemGroup>
-    <_MauiBrowserFileName Include="maui-browser.js;maui-browser.d.ts;dotnet.d.ts" />
-    <_MauiBrowserLocalAsset Include="@(_MauiBrowserFileName->'$(_MauiBrowserDestination)%(Identity)')"
-                            Condition="'$(_MauiBrowserDestination)' != ''" />
-    <!-- Remove warm-build glob matches. The original provider remains the only publication source. -->
-    <Content Remove="@(_MauiBrowserLocalAsset)" MatchOnMetadata="FullPath" MatchOnMetadataOptions="PathLike" />
-    <None Remove="@(_MauiBrowserLocalAsset)" MatchOnMetadata="FullPath" MatchOnMetadataOptions="PathLike" />
-    <WasmExtraFilesToDeploy Remove="@(_MauiBrowserLocalAsset)" MatchOnMetadata="FullPath" MatchOnMetadataOptions="PathLike" />
-  </ItemGroup>
-  <ItemGroup Condition="'$(_MauiBrowserIsProject)' != 'true'">
-    <_MauiBrowserPackagedAsset Include="@(_MauiBrowserFileName->'$(_MauiBrowserPackageAssets)%(Identity)')">
+    <Content Include="$(MSBuildThisFileDirectory)../browser-assets/maui-browser.js;$(MSBuildThisFileDirectory)../browser-assets/maui-browser.d.ts;$(MSBuildThisFileDirectory)../browser-assets/dotnet.d.ts"
+             CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest">
       <TargetPath>%(Filename)%(Extension)</TargetPath>
-    </_MauiBrowserPackagedAsset>
-    <Content Include="@(_MauiBrowserPackagedAsset)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    </Content>
   </ItemGroup>
-
-  <!-- Package targets can be imported before a consumer's own glob declarations. -->
-  <Target Name="_ExcludeMauiBrowserSourceAssets" BeforeTargets="AssignTargetPaths">
-    <ItemGroup>
-      <Content Remove="@(_MauiBrowserLocalAsset)" MatchOnMetadata="FullPath" MatchOnMetadataOptions="PathLike" />
-      <None Remove="@(_MauiBrowserLocalAsset)" MatchOnMetadata="FullPath" MatchOnMetadataOptions="PathLike" />
-      <WasmExtraFilesToDeploy Remove="@(_MauiBrowserLocalAsset)" MatchOnMetadata="FullPath" MatchOnMetadataOptions="PathLike" />
-    </ItemGroup>
-  </Target>
-  <!-- LLVM snapshots this separate item list after linking, independently of SDK Content publishing. -->
-  <Target Name="_ExcludeMauiBrowserNativeSourceAssets" BeforeTargets="CopyDotnetJsAfterLinking">
-    <ItemGroup>
-      <WasmExtraFilesToDeploy Remove="@(_MauiBrowserLocalAsset)" MatchOnMetadata="FullPath" MatchOnMetadataOptions="PathLike" />
-    </ItemGroup>
-  </Target>
-
-  <!-- Explicit invocation does not resolve the consumer's native packages. Normal builds have
-       already negotiated reference metadata; standalone preparation uses this single-target backend. -->
-  <Target Name="PrepareMauiBrowserAssets" AfterTargets="ResolveProjectReferences" BeforeTargets="CoreCompile"
-          Condition="'$(DesignTimeBuild)' != 'true' and '$(_MauiBrowserDestination)' != ''">
-    <ItemGroup Condition="'$(_MauiBrowserIsProject)' == 'true'">
-      <_MauiBrowserReference Include="@(_MSBuildProjectReferenceExistent)"
-                             Condition="'%(_MSBuildProjectReferenceExistent.FullPath)' == '$(_MauiBrowserSourceProject)'" />
-      <_MauiBrowserReference Include="@(ProjectReference)"
-                             Condition="'@(_MauiBrowserReference)' == '' and '%(ProjectReference.FullPath)' == '$(_MauiBrowserSourceProject)'" />
-    </ItemGroup>
-    <Error Condition="'$(_MauiBrowserIsProject)' == 'true' and '@(_MauiBrowserReference)' == ''"
-           Text="Import the browser targets from the backend project referenced by this consumer." />
-    <MSBuild Projects="@(_MauiBrowserReference)" Targets="GetMauiBrowserAssets"
-             Properties="Configuration=$(Configuration);%(_MauiBrowserReference.SetConfiguration);%(_MauiBrowserReference.SetPlatform);%(_MauiBrowserReference.SetTargetFramework)"
-             RemoveProperties="TargetFramework;RuntimeIdentifier;SelfContained;%(_MauiBrowserReference.GlobalPropertiesToRemove);%(_MauiBrowserReference.UndefineProperties);$(_GlobalPropertiesToRemoveFromProjectReferences)"
-             Condition="'$(_MauiBrowserIsProject)' == 'true'">
-      <Output TaskParameter="TargetOutputs" ItemName="_MauiBrowserResolvedAsset" />
-    </MSBuild>
-    <ItemGroup Condition="'$(_MauiBrowserIsProject)' != 'true'">
-      <_MauiBrowserResolvedAsset Include="@(_MauiBrowserPackagedAsset)" />
-    </ItemGroup>
-    <Error Condition="'@(_MauiBrowserResolvedAsset)' == ''" Text="No MAUI browser assets were provided by the reference." />
-    <Error Condition="!Exists('%(_MauiBrowserResolvedAsset.Identity)')"
-           Text="MAUI browser asset not found: %(_MauiBrowserResolvedAsset.Identity). Build the backend or restore a complete package before preparing assets." />
-    <MakeDir Directories="$(_MauiBrowserDestination)" />
-    <!-- This opt-in directory reserves only these three generated filenames, not the app's other files.
-         Do not register the source copies as Content or FileWrites: publishing uses the provider,
-         and cleaning a configuration must not delete the source-side editor declarations. -->
-    <Copy SourceFiles="@(_MauiBrowserResolvedAsset)"
-          DestinationFiles="@(_MauiBrowserResolvedAsset->'$(_MauiBrowserDestination)%(TargetPath)')"
-          SkipUnchangedFiles="true" />
-  </Target>
 </Project>

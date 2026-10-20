@@ -15,32 +15,38 @@ See the [toolchain requirements](README.md#toolchain-configuration). Native publ
 
 ## Build from source
 
-From the product directory:
+With .NET 10, Node.js 22+ and npm installed, run from the product directory:
 
 ```bash
-npm ci --ignore-scripts
-MSBuildEnableWorkloadResolver=false dotnet build src/Wasm.FluentUIWebComponents/Wasm.FluentUIWebComponents.csproj -c Release
+dotnet build src/Wasm.FluentUIWebComponents/Wasm.FluentUIWebComponents.csproj -c Release
 ```
 
-This restores/builds the managed backend and its browser bundle/declarations, not a runnable website. The environment-variable syntax above is for POSIX shells; on other shells, set `MSBuildEnableWorkloadResolver=false` using the shell's environment syntax before running `dotnet build`.
+This restores/builds the managed backend and its browser bundle/declarations. No Wasm output will be generated in this backend package. Native Wasm and a runnable website will be generated in the consumer packages.
 
-Install the sample's separate npm dependencies from `samples/BrowserSample` with `npm ci --ignore-scripts`. To build the full solution on a compatible compiler host, run from the product directory:
+Build instruction:
+
+```
+dotnet build [-c Debug|Release]
+```
+
+`dotnet build` runs `RestoreBrowserDependencies` (`npm ci`) -> `GenerateBrowserInterop` -> `BuildBrowserAssets` (`npm run build`) in addition to the regular C# build. Dependency restoration runs `npm ci` automatically at the product root when `node_modules` is absent. These targets skip design-time builds, and clean operations retain the shared npm dependencies. After dependency or lockfile changes, run `npm ci` explicitly to refresh an existing installation.
+
+A direct backend-root `npm run build` is a lower-level backend bundle command: it requires a finished `dotnet build`, specifically `GenerateBrowserInterop` target, and it generates the JavaScript bundle required by this backend that contains the bridge to operate DOM nodes and provide browser platform features.
+
+To compile the full solution (including .NET part of the sample projects) on a compatible compiler host (see toolchain requirements), run from the product directory:
 
 ```bash
-MSBuildEnableWorkloadResolver=false dotnet build Wasm.FluentUIWebComponents.slnx -c Release
+dotnet build Wasm.FluentUIWebComponents.slnx -c Release
 ```
 
-Publishing and frontend commands are documented in the [sample README](samples/BrowserSample/README.md#build-and-run) and run from the **sample directory**.
+Please be aware that this does not compile the sample website. For a complete sample build on a supported host with initialized Emscripten, run `npm ci` followed by `npm run build` in the **sample directory**.  See the [sample README](samples/BrowserSample/README.md#build-and-run).
 
-## Checked-in sample reference and host setup
+## Sample reference and host setup
 
-The checked-in `BrowserSample.csproj` intentionally uses a source `ProjectReference` plus an explicit import of the backend's `buildTransitive/Microsoft.Maui.Platforms.Wasm.FluentUIWebComponents.targets`. Source project references do not get NuGet's automatic targets import. The sample also inherits the product build properties and repository package versions. Copying its directory alone therefore does **not** produce an independent NuGet-consuming C# project.
+The provided `BrowserSample` can be used as a reference of consuming this backend, except two differences: It uses a source `ProjectReference` instead of `PackageReference` from a NuGet feed. It also inherits the product build properties and repository package versions. Therefire, copying its directory alone therefore does **not** produce an independent NuGet-consuming C# project without any modification, but other parts can be referenced as is.
 
-For source-only asset preparation, restore/build the backend as above first. The sample's `prepare:browser` and `build:browser` targets can then prepare assets without restoring the sample's native compiler host, but still require the backend's source-build prerequisites. A package consumer instead restores its application package references and uses the automatically imported targets; remove both the backend `ProjectReference` and explicit import when converting the sample.
 
-The sample selects `runtime.$(NETCoreSdkPortableRuntimeIdentifier).Microsoft.DotNet.ILCompiler.LLVM` using the **SDK host RID**, not the application's `browser-wasm` RID. Its compiler package versions are aligned through repository Central Package Management. A selected package must actually exist for that host; automatic selection does not add support for an unavailable host such as the current macOS ARM64 configuration. Initialize compatible Emscripten mentioned in the toolchain configuration. Bash is not required for the sample's npm/MSBuild commands.
-
-Host-specific `packages.<SDK-host-RID>.lock.json` files are included for `linux-arm64`, `linux-x64` and `win-x64`. Restore support does not imply native publishing has been tested on every host. Adding another supported host requires generating and reviewing its lockfile. From the sample directory, verify locked restore with:
+Host-specific `packages.<SDK-host-RID>.lock.json` files are included for `linux-arm64`, `linux-x64` and `win-x64` (macOS is not yet supported due to lack of NuGet package). Restore support does not imply native publishing has been tested on every host. Adding another supported host requires generating and reviewing its lockfile. From the sample directory, verify locked restore with:
 
 ```bash
 dotnet restore BrowserSample.csproj -p:RestoreLockedMode=true

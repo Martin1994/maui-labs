@@ -25,9 +25,14 @@ host dependencies do not flow to the app.
 The tool runs **before TypeScript checking and before backend compilation**. It
 never loads the backend DLL or depends on another generator's output. Analyzer
 references are removed before requesting the compilation, so the LLVM marshalling
-generator is not run during contract extraction. Ordinary
-`dotnet build` invokes it automatically. A standalone `npm run build` invokes the
-same target in Release; restore the backend project first.
+generator is not run during contract extraction. Ordinary backend `dotnet build`
+invokes it automatically: `BuildBrowserAssets` depends on both
+`RestoreBrowserDependencies` and `GenerateBrowserInterop` before running the
+backend's npm bundle build. Dependency restoration runs product-root `npm ci`
+only when `node_modules` is absent, skips design-time builds, and survives clean
+operations. A standalone product-root `npm run build` invokes the generation
+target in Release; install product npm dependencies and restore the backend
+project first. This is separate from the sample's npm-led site pipeline.
 
 The generated contract lives in `src/Wasm.FluentUIWebComponents/web/generated/`.
 It is shared across configurations and gitignored. Ordinary relative imports
@@ -118,24 +123,23 @@ cases and the emitted resolver at runtime. TypeScript checks and JS emit use the
 compiler CLI, not its JS API.
 
 Run `npm run test:interop:build` separately for the heavier build regression.
-Install dependencies in both the product and `samples/BrowserSample` directories
-first. The regression cleans/rebuilds this backend in Debug and Release, compares their shared source
-contracts, checks configuration-local assets and unchanged contract mtime, verifies
-design-time generation is skipped, and builds a temporary compile-only consumer
-to ensure only runtime assets flow through the project reference. It does not
-publish or require a native LLVM compiler host. Do not run this clean/build test
-concurrently with other builds of the same configurations.
+It cleans/rebuilds this backend in Debug and Release, compares their shared source
+contracts, checks configuration-local assets and unchanged contract mtime, and
+verifies design-time generation is skipped and clean retains npm dependencies.
+A cold source fixture has no `node_modules`, restore outputs or generated
+declarations: standard `dotnet build` must produce the complete backend.
+Do not run this clean/build test concurrently with other builds of the same configurations.
+
+Managed consumer fixtures exercise real `dotnet publish` with both a project
+reference and a locally packed/restored NuGet reference. Both must publish the
+same three assets exactly once without CodeGen/Roslyn/MSBuild dependencies.
+The copied frontend installs its own npm dependencies outside the checkout and
+tests preparation, TS compilation, byte-preserving site assembly, stale output
+removal and missing-input/collision failures. Native runtime files in that frontend
+fixture are explicitly mocked; these tests do not require a native LLVM compiler host.
 
 These commands test the interop generator and its build integration, not the
 backend's complete runtime or UI behavior; they are not a package-wide test suite.
 
-The build tests also exercise the consumer asset targets through both a source
-project reference and an actual local NuGet package with automatic `buildTransitive`
-import. They check first-build source materialization, warm-build glob filtering,
-missing-file regeneration and a single canonical publish item per browser asset.
-The TypeScript sample check also verifies that absent compiled JS outputs are
-registered for native deployment before the first build, emitted by its frontend
-target, and not duplicated on a warm build. This does not run the native app.
-An isolated frontend check copies the sample's npm project and public browser
-assets outside the checkout, installs its own dependencies, and runs its local
-build/check scripts. It does not claim standalone C# or NativeAOT validation.
+The managed publish fixtures and frontend tests do not establish a full standalone
+NativeAOT application publish or browser-runtime validation.

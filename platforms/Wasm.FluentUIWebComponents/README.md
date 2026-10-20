@@ -17,7 +17,7 @@ There are **no released packages currently**. External consumption uses an exper
 
 `MauiFluentBackendVersion` is an application-defined MSBuild property: set it to the exact experimental/local package version available from your feed. It is not a published-version claim or a property supplied by the backend. This reference does not by itself configure a complete NativeAOT LLVM application.
 
-The `.nupkg` contains `buildTransitive/Microsoft.Maui.Platforms.Wasm.FluentUIWebComponents.targets`. NuGet restore generates `obj/<project>.nuget.g.targets` and automatically imports it. **Remove any repo-relative backend `<Import>` when switching to the package; do not replace it with a NuGet-cache path or edit the generated imports.** This is standard NuGet [MSBuild `build`/`buildTransitive` integration](https://learn.microsoft.com/en-us/nuget/concepts/msbuild-props-and-targets).
+The `.nupkg` contains `buildTransitive/Microsoft.Maui.Platforms.Wasm.FluentUIWebComponents.targets`. NuGet restore automatically imports it to register the three browser assets as `Content` copied to application output and publish directories. A source `ProjectReference` supplies the same filenames through the backend's normal `Content` items. Neither reference type needs a manual backend `<Import>`; remove one if migrating from an older setup. Do not use NuGet-cache paths or edit generated imports. This is standard NuGet [MSBuild `build`/`buildTransitive` integration](https://learn.microsoft.com/en-us/nuget/concepts/msbuild-props-and-targets).
 
 The [BrowserSample README](samples/BrowserSample/README.md) covers application features, publishing and static deployment, and explains its current checkout-dependent C# project. Backend source builds and repository setup belong in [CONTRIBUTING.md](CONTRIBUTING.md).
 
@@ -93,21 +93,15 @@ The NuGet package supplies three assets to the application output and publish di
 - `maui-browser.d.ts`: `startMaui` and the returned `MauiApplicationHandle`.
 - `dotnet.d.ts`: the original declaration from the matching LLVM runtime package.
 
-To make these files available beside your application's browser source, set `MauiBrowserAssetsDirectory` in the application project:
+The application's **publish directory is the frontend's input**, for both package and source references. Frontend tooling must not look into backend intermediate directories or the NuGet cache. The package targets only supply `Content`; they do not prepare application source files, compile application TypeScript or assemble a website.
 
-```xml
-<PropertyGroup>
-    <MauiBrowserAssetsDirectory>$(MSBuildProjectDirectory)/web</MauiBrowserAssetsDirectory>
-</PropertyGroup>
-```
+The sample's npm pipeline publishes the MAUI module to `artifacts/maui`, then copies these three files beside its handwritten `web/` TypeScript for editor and compiler imports. These local copies are gitignored and should not be edited. TypeScript emits to `artifacts/typescript`; site assembly combines that output, handwritten `wwwroot/` assets and the entire MAUI publish directory into `artifacts/wwwroot`. The same frontend pipeline works with either reference type. See the [sample build instructions](samples/BrowserSample/README.md#build-and-run).
 
-The package's automatically imported targets honor this public property; no manual import, backend source path or intermediate-output path is needed.
-
-The selected directory reserves the three filenames above for generated assets; gitignore those files and keep application code in separate files. Builds refresh them before compilation, and `PrepareMauiBrowserAssets` can be invoked explicitly after the application's NuGet restore to prepare packaged assets without compiling the application. Imports resolve against adjacent `.d.ts` files without `rootDirs` or paths into the backend. Keep application TypeScript sources in `web/` and compile application JS into `wwwroot/`, as the sample does, without rechecking the backend bundle. The targets manage backend build/publish resources separately, so do not add another custom copy step for these files.
+Standard `dotnet publish` produces the MAUI module's Wasm, runtime glue, backend JS and declarations, plus symbols/metadata when emitted by the toolchain—not a complete website. It does not call the sample's npm scripts. Building a source-referenced backend still intentionally runs its own npm bundle build. Ordinary `dotnet build` compiles managed code and backend resources; it does not perform the native Wasm publish.
 
 The application imports its own runtime's `dotnet.js` and passes its builder to `startMaui`. The runtime JS exports live in the backend assembly; consuming applications must include that assembly in `UnmanagedEntryPointsAssembly` to preserve the exports. Use the runtime assets supplied by the configured LLVM toolchain, not SDK/Blazor replacements.
 
-The browser interop contract is generated from the backend's C# declarations when the backend is built. The resulting browser bundle and public type declarations are packaged together; consuming applications do not need to configure or run backend code generation. Declarations become available beside application sources after asset preparation or the first application build and can be used to type-check application bootstrap code. Private implementation declarations are not distributed.
+The browser interop contract is generated from the backend's C# declarations when the backend is built. The resulting browser bundle and public type declarations are packaged together; package consumers do not need to configure or run backend code generation. Frontend-owned preparation makes the published declarations available beside application sources to type-check bootstrap code. Private implementation declarations are not distributed.
 
 Code generation is provided by [Wasm.FluentUIWebComponents.CodeGen](tools/Wasm.FluentUIWebComponents.CodeGen/README.md); its README contains implementation and testing details. Runtime declarations may describe APIs beyond the subset supported by NativeAOT LLVM; their presence alone does not guarantee runtime support.
 

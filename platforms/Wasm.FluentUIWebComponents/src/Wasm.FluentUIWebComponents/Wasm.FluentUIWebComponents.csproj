@@ -2,6 +2,9 @@
   <PropertyGroup>
     <AssemblyName>Microsoft.Maui.Platforms.Wasm.FluentUIWebComponents</AssemblyName>
     <RootNamespace>Microsoft.Maui.Platforms.Wasm.FluentUIWebComponents</RootNamespace>
+        <!-- NativeAOT LLVM supplies its own toolchain, not the SDK's wasm-tools workload. -->
+        <!-- See: https://github.com/dotnet/runtimelab/blob/527a565752062b20bb9693eea6c884b34ecce7bf/docs/using-nativeaot/compiling.md#adjust-the-project-configuration -->
+        <MSBuildEnableWorkloadResolver>false</MSBuildEnableWorkloadResolver>
     <BrowserBuildDirectory>$(MSBuildProjectDirectory)/obj/browser/$(Configuration)/$(TargetFramework)/$(RuntimeIdentifier)</BrowserBuildDirectory>
   </PropertyGroup>
   <ItemGroup>
@@ -28,7 +31,12 @@
     <Exec Command="&quot;$(BrowserInteropDotNet)&quot; &quot;@(BrowserCodeGenerator)&quot; &quot;$(MSBuildProjectFullPath)&quot; &quot;$(MSBuildProjectDirectory)/web/generated/contracts.g.ts&quot; --configuration &quot;$(Configuration)&quot;" />
     <!-- Shared generated source is intentionally not in configuration-specific FileWrites. -->
   </Target>
-  <Target Name="BuildBrowserAssets" BeforeTargets="CoreCompile" DependsOnTargets="GenerateBrowserInterop"
+  <!-- Restored dependencies are shared by configurations and intentionally survive Clean. -->
+  <Target Name="RestoreBrowserDependencies"
+          Condition="'$(DesignTimeBuild)' != 'true' and !Exists('$(MSBuildProjectDirectory)/../../node_modules')">
+    <Exec WorkingDirectory="$(MSBuildProjectDirectory)/../.." Command="npm ci" />
+  </Target>
+  <Target Name="BuildBrowserAssets" BeforeTargets="CoreCompile" DependsOnTargets="RestoreBrowserDependencies;GenerateBrowserInterop"
           Condition="'$(DesignTimeBuild)' != 'true'">
     <Exec WorkingDirectory="$(MSBuildProjectDirectory)/../.." Command="npm run build"
           EnvironmentVariables="MAUI_BROWSER_PROJECT_ASSETS=$(ProjectAssetsFile);DOTNET_DECLARATIONS=;MAUI_BROWSER_INTEROP_GENERATED=1;MAUI_BROWSER_BUILD_DIRECTORY=$(BrowserBuildDirectory)" />
@@ -36,5 +44,8 @@
       <FileWrites Include="$(BrowserBuildDirectory)/**/*" />
     </ItemGroup>
   </Target>
-  <Target Name="GetMauiBrowserAssets" DependsOnTargets="BuildBrowserAssets" Returns="@(MauiBrowserAsset)" />
+  <!-- These outputs live outside the SDK's IntermediateOutputPath cleanup boundary. -->
+  <Target Name="CleanBrowserAssets" AfterTargets="CoreClean" Condition="'$(DesignTimeBuild)' != 'true'">
+    <RemoveDir Directories="$(BrowserBuildDirectory)" />
+  </Target>
 </Project>

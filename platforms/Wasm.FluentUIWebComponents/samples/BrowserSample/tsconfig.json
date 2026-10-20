@@ -11,7 +11,7 @@
     "verbatimModuleSyntax": true,
     "noEmitOnError": true,
     "rootDir": "web",
-    "outDir": "wwwroot"
+    "outDir": "artifacts/typescript"
   },
   "include": ["web/**/*.ts"]
 }
