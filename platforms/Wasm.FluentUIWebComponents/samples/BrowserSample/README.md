@@ -93,7 +93,7 @@ This installs the sample's locked frontend dependencies, publishes the MAUI modu
 | --- | --- |
 | `npm run build` | `npm run build:maui-app && npm run build:ts && npm run build:site` |
 | `npm run build:maui-app` | `dotnet publish BrowserSample.csproj` → `artifacts/maui/` |
-| `npm run prepare:maui-bridge` | `node scripts/prepare-maui.mjs`: copy three published backend assets into `web/` and clear `artifacts/typescript/` |
+| `npm run prepare:maui-bridge` | `node scripts/prepare-maui-bridge.mjs`: copy three published backend assets into `web/` and clear `artifacts/typescript/` |
 | `npm run build:ts` | `npm run prepare:maui-bridge && tsc --project tsconfig.json` → `artifacts/typescript/` |
 | `npm run check` | `tsc --project tsconfig.json --noEmit`; requires prepared declarations |
 | `npm run build:site` | `node scripts/build-site.mjs` → complete `artifacts/wwwroot/` |

@@ -63,6 +63,8 @@ try {
     }
     try {
         await rename(staging, site);
+        console.log("Site built successfully.");
+        console.log(site);
     } catch (error) {
         if (previousSite) {
             // If rollback itself fails, leave the uniquely named backup for recovery.
