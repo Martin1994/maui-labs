@@ -140,8 +140,26 @@ internal sealed class BrowserEntryHandler : BrowserViewHandler<IEntry>
 
     protected override void DisconnectHandler(BrowserElement platformView)
     {
-        VirtualView.IsFocused = false;
-        base.DisconnectHandler(platformView);
+        try
+        {
+            VirtualView.IsFocused = false;
+        }
+        finally
+        {
+            // Unfocused is application code and can throw. Always release the
+            // input listener and handle, even when that notification fails.
+            base.DisconnectHandler(platformView);
+        }
+    }
+
+    public override void UpdateValue(string property)
+    {
+        // MAUI clears PlatformView before DisconnectHandler. Unfocused/VSM
+        // callbacks can still change properties during that notification.
+        if (((IElementHandler)this).PlatformView is not null)
+        {
+            base.UpdateValue(property);
+        }
     }
 
     private static void MapSelection(BrowserEntryHandler handler, IEntry view)
@@ -154,14 +172,19 @@ internal sealed class BrowserEntryHandler : BrowserViewHandler<IEntry>
 
     internal void Input(string value, int start, int length)
     {
+        var view = VirtualView;
+        var platformView = PlatformView;
         _updating = true;
         try
         {
-            VirtualView.Text = value;
-            if (VirtualView.Text == value)
+            view.Text = value;
+            if (ReferenceEquals(((IElementHandler)this).PlatformView, platformView) && view.Text == value)
             {
-                VirtualView.CursorPosition = start;
-                VirtualView.SelectionLength = length;
+                view.CursorPosition = start;
+                if (ReferenceEquals(((IElementHandler)this).PlatformView, platformView))
+                {
+                    view.SelectionLength = length;
+                }
             }
         }
         finally
@@ -170,19 +193,24 @@ internal sealed class BrowserEntryHandler : BrowserViewHandler<IEntry>
         }
         // A TextChanged handler may normalize the value. Preserve that change,
         // but never echo unchanged input back through the native value setter.
-        if ((VirtualView.Text ?? "") != value)
+        if (ReferenceEquals(((IElementHandler)this).PlatformView, platformView) && (view.Text ?? "") != value)
         {
-            Browser.SetInputValue(PlatformView.Id, VirtualView.Text ?? "");
+            Browser.SetInputValue(platformView.Id, view.Text ?? "");
         }
     }
 
     internal void Selection(int start, int length)
     {
+        var view = VirtualView;
+        var platformView = PlatformView;
         _updating = true;
         try
         {
-            VirtualView.CursorPosition = start;
-            VirtualView.SelectionLength = length;
+            view.CursorPosition = start;
+            if (ReferenceEquals(((IElementHandler)this).PlatformView, platformView))
+            {
+                view.SelectionLength = length;
+            }
         }
         finally
         {

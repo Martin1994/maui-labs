@@ -32,6 +32,10 @@ internal abstract class BrowserViewHandler<TView> : ViewHandler<TView, BrowserEl
             {
                 h.PlatformView.Style("opacity", BrowserElement.Number(v.Opacity));
             },
+            [nameof(IView.ZIndex)] = (h, v) =>
+            {
+                h.PlatformView.Style("z-index", BrowserElement.Number(v.ZIndex));
+            },
             [nameof(IView.Visibility)] = MapVisibility,
             [nameof(VisualElement.IsVisible)] = MapVisibility,
             [nameof(IView.Background)] = MapBackground,
@@ -60,6 +64,10 @@ internal abstract class BrowserViewHandler<TView> : ViewHandler<TView, BrowserEl
 
     public static new readonly CommandMapper<IView, BrowserViewHandler<TView>> ViewCommandMapper = new()
     {
+        [nameof(IView.ZIndex)] = (h, v, _) =>
+        {
+            h.PlatformView.Style("z-index", BrowserElement.Number(v.ZIndex));
+        },
         [nameof(IView.InvalidateMeasure)] = (h, _, _) =>
         {
             h.Host.RequestLayout();

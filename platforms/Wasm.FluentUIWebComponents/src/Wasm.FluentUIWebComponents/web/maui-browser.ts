@@ -64,12 +64,13 @@ export async function startMaui(
         const runtime = await dotnet.withMainAssembly(mainAssembly).create();
         runtime.setModuleImports(BrowserModuleName, bridge.imports);
         api = resolveBrowserExports(await runtime.getAssemblyExports(BrowserApplicationAssemblyName));
+        // Main can start the managed host and then throw or return a nonzero
+        // code. Once exports are available, Shutdown is safe even before Run.
+        ownsApplication = true;
         const exitCode = await runtime.runMain(mainAssembly, []);
         if (exitCode !== 0) {
             throw new Error(`MAUI Main exited with code ${exitCode}`);
         }
-        ownsApplication = true;
-
         // Main completed successfully; this does not imply a first frame has rendered.
         element.dataset.state = 'ready';
         return { dispose };

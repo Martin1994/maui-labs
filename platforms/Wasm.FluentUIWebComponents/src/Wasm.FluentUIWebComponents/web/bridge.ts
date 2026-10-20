@@ -403,7 +403,7 @@ export class DomBrowserBridge implements BrowserBridge {
 
     #schedule(id: number, milliseconds: number): void {
         if (this.#stopped) {
-            return;
+            throw new Error('MAUI bridge has stopped');
         }
         clearTimeout(this.#timers.get(id));
         this.#timers.set(id, setTimeout(() => {

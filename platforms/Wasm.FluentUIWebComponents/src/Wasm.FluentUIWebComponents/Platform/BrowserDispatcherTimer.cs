@@ -62,53 +62,68 @@ internal sealed class BrowserDispatcherTimer : IDispatcherTimer
         IsRunning = true;
         _generation++;
         _dispatcher.TrackTimer(this);
-        try
-        {
-            Queue();
-        }
-        catch
-        {
-            Stop();
-            throw;
-        }
+        Queue();
     }
 
     private void Queue()
     {
         long generation = _generation;
-        _pending = _dispatcher.Schedule(_interval, () =>
+        try
         {
-            if (!IsRunning || generation != _generation)
-            {
-                return;
-            }
-            _pending = 0;
-            if (!IsRepeating)
+            _pending = _dispatcher.Schedule(_interval, () => OnTick(generation));
+        }
+        catch
+        {
+            // Schedule rolls back its registration on failure. Do not retain a
+            // running timer without a callback, including after the first tick.
+            Stop();
+            throw;
+        }
+    }
+
+    private void OnTick(long generation)
+    {
+        if (!IsRunning || generation != _generation)
+        {
+            return;
+        }
+        _pending = 0;
+        try
+        {
+            Tick?.Invoke(this, EventArgs.Empty);
+        }
+        catch
+        {
+            // A failing callback stops its own generation. An explicit restart
+            // from that callback owns a new schedule and must not be cancelled.
+            if (generation == _generation)
             {
                 Stop();
             }
-            try
+            throw;
+        }
+        // Read IsRepeating AFTER user code. Stop/restart and Interval changes
+        // own their new schedule; never enqueue twice for that generation.
+        if (IsRunning && generation == _generation)
+        {
+            if (IsRepeating)
             {
-                Tick?.Invoke(this, EventArgs.Empty);
+                Queue();
             }
-            finally
+            else
             {
-                // Stop/restart or Interval changes from a Tick handler own their
-                // new schedule; never add a second callback for that generation.
-                if (IsRunning && generation == _generation)
-                {
-                    Queue();
-                }
+                Stop();
             }
-        });
+        }
     }
 
     public void Stop()
     {
         IsRunning = false;
         _generation++;
-        _dispatcher.Cancel(_pending);
+        int pending = _pending;
         _pending = 0;
         _dispatcher.UntrackTimer(this);
+        _dispatcher.Cancel(pending);
     }
 }

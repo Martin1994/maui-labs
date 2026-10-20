@@ -31,6 +31,7 @@ internal sealed class BrowserTicker : ITicker, IDisposable
         }
         set
         {
+            ObjectDisposedException.ThrowIf(_disposed, this);
             if (value <= 0)
             {
                 throw new ArgumentOutOfRangeException(nameof(value));
@@ -38,7 +39,11 @@ internal sealed class BrowserTicker : ITicker, IDisposable
             _maxFps = value;
             if (IsRunning)
             {
+                // The JS operation replaces the previous rAF. If replacement
+                // fails, leave a restartable stopped ticker, not a phantom one.
+                IsRunning = false;
                 Browser.StartTicker(value);
+                IsRunning = true;
             }
         }
     }
@@ -70,8 +75,8 @@ internal sealed class BrowserTicker : ITicker, IDisposable
         {
             return;
         }
-        Stop();
         _disposed = true;
         Fire = null;
+        Stop();
     }
 }

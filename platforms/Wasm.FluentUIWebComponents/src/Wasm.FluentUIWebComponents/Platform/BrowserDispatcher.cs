@@ -19,7 +19,7 @@ internal sealed class BrowserDispatcher : IDispatcher, IDispatcherProvider, IDis
     }
     public IDispatcher? GetForCurrentThread()
     {
-        return IsDispatchRequired ? null : this;
+        return _disposed || IsDispatchRequired ? null : this;
     }
     public bool Dispatch(Action action)
     {
@@ -97,15 +97,38 @@ internal sealed class BrowserDispatcher : IDispatcher, IDispatcherProvider, IDis
         {
             return;
         }
+        // Reject reentrant work before calling interop. A cancellation failure
+        // must not prevent other callbacks from releasing captured application state.
+        _disposed = true;
+        List<Exception>? errors = null;
         foreach (var timer in _timers.ToArray())
         {
-            timer.Stop();
+            try
+            {
+                timer.Stop();
+            }
+            catch (Exception exception)
+            {
+                (errors ??= new()).Add(exception);
+            }
         }
-        _disposed = true;
-        foreach (int id in _pending.Keys)
-        {
-            Browser.CancelSchedule(id);
-        }
+        int[] pending = _pending.Keys.ToArray();
         _pending.Clear();
+        _timers.Clear();
+        foreach (int id in pending)
+        {
+            try
+            {
+                Browser.CancelSchedule(id);
+            }
+            catch (Exception exception)
+            {
+                (errors ??= new()).Add(exception);
+            }
+        }
+        if (errors is not null)
+        {
+            throw new AggregateException("Browser dispatcher cleanup failed.", errors);
+        }
     }
 }
