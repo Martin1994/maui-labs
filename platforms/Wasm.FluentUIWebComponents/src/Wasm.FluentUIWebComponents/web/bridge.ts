@@ -202,6 +202,8 @@ export class DomBrowserBridge implements BrowserBridge {
         }
         this.#observer?.disconnect();
         this.#observer = undefined;
+        document.fonts.removeEventListener('loadingdone', this.#requestLayout);
+        document.fonts.removeEventListener('loadingerror', this.#requestLayout);
         cancelAnimationFrame(this.#frameId);
         this.#frameId = 0;
         this.#mountedId = 0;
@@ -358,6 +360,10 @@ export class DomBrowserBridge implements BrowserBridge {
         this.#mountedId = id;
         this.#observer = new ResizeObserver(this.#requestLayout);
         this.#observer.observe(this.#viewport);
+        // Fonts first used by mounted controls can load after startup's fonts.ready.
+        // Reuse the coalesced root layout and keep listeners owned by this mount.
+        document.fonts.addEventListener('loadingdone', this.#requestLayout);
+        document.fonts.addEventListener('loadingerror', this.#requestLayout);
         this.#requestLayout();
     }
 

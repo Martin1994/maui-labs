@@ -21,6 +21,7 @@ public sealed partial class BrowserApplication : IPlatformApplication, IDisposab
     private IWindow? _window;
     private IElementHandler? _applicationHandler;
     private IElementHandler? _windowHandler;
+    private IDispatcherProvider? _previousDispatcherProvider;
     private readonly Dictionary<int, IElementHandler> _handlers = new();
     private bool _closed;
     private bool _insideLayout;
@@ -83,6 +84,7 @@ public sealed partial class BrowserApplication : IPlatformApplication, IDisposab
         var host = new BrowserApplication();
         _current = host;
         IPlatformApplication.Current = host;
+        host._previousDispatcherProvider = DispatcherProvider.Current;
         DispatcherProvider.SetCurrent(host.Dispatcher);
         try
         {
@@ -105,8 +107,14 @@ public sealed partial class BrowserApplication : IPlatformApplication, IDisposab
         }
         catch (Exception exception)
         {
-            Browser.Report(exception.ToString());
-            host.Dispose();
+            try
+            {
+                Browser.Report(exception.ToString());
+            }
+            finally
+            {
+                host.Dispose();
+            }
             return 1;
         }
     }
@@ -205,6 +213,18 @@ public sealed partial class BrowserApplication : IPlatformApplication, IDisposab
         catch (Exception exception)
         {
             Browser.Report(exception.ToString());
+        }
+    }
+    private static void CleanupBoundary(Action action)
+    {
+        try
+        {
+            Boundary(action);
+        }
+        catch (Exception)
+        {
+            // Reporting can fail when the JS bridge is shutting down. Continue
+            // releasing resources and restoring globals even in that case.
         }
     }
     [JSExport]
@@ -320,50 +340,61 @@ public sealed partial class BrowserApplication : IPlatformApplication, IDisposab
             return;
         }
         _closed = true;
-        Boundary(Browser.Stop);
-        Boundary(Dispatcher.Dispose);
-        Boundary(Ticker.Dispose);
+        CleanupBoundary(Browser.Stop);
+        CleanupBoundary(Dispatcher.Dispose);
+        CleanupBoundary(Ticker.Dispose);
         if (_activated)
         {
-            Boundary(() =>
+            CleanupBoundary(() =>
             {
                 _window!.Deactivated();
             });
         }
         if (_created)
         {
-            Boundary(() =>
+            CleanupBoundary(() =>
             {
                 _window!.Destroying();
             });
         }
         foreach (var handler in _handlers.Values.Reverse().ToArray())
         {
-            if (handler.PlatformView is not null)
+            CleanupBoundary(() =>
             {
-                Boundary(handler.DisconnectHandler);
-            }
+                if (handler.PlatformView is not null)
+                {
+                    handler.DisconnectHandler();
+                }
+            });
         }
-        if (_applicationHandler?.PlatformView is not null)
+        CleanupBoundary(() =>
         {
-            Boundary(_applicationHandler.DisconnectHandler);
-        }
+            if (_applicationHandler?.PlatformView is not null)
+            {
+                _applicationHandler.DisconnectHandler();
+            }
+        });
         Clicks.Clear();
         Scrolls.Clear();
         _handlers.Clear();
         if (_scope is not null)
         {
-            Boundary(_scope.Dispose);
+            CleanupBoundary(_scope.Dispose);
         }
         if (_mauiApp is not null)
         {
-            Boundary(_mauiApp.Dispose);
+            CleanupBoundary(_mauiApp.Dispose);
         }
         if (_appInfo is not null)
         {
-            Boundary(_appInfo.Dispose);
+            CleanupBoundary(_appInfo.Dispose);
             _appInfo = null;
         }
+        if (_previousDispatcherProvider is not null && ReferenceEquals(DispatcherProvider.Current, Dispatcher))
+        {
+            DispatcherProvider.SetCurrent(_previousDispatcherProvider);
+        }
+        _previousDispatcherProvider = null;
         if (ReferenceEquals(IPlatformApplication.Current, this))
         {
             IPlatformApplication.Current = null;

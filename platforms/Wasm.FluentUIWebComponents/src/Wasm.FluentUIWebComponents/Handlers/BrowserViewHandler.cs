@@ -112,7 +112,12 @@ internal abstract class BrowserViewHandler<TView> : ViewHandler<TView, BrowserEl
         double width = LayoutManager.ResolveConstraints(widthConstraint, VirtualView.Width,
             naturalWidth, VirtualView.MinimumWidth, VirtualView.MaximumWidth);
         // Height must be measured at the effective requested/max width, not the parent's width.
-        double height = Browser.Measure(PlatformView.Id, width, heightConstraint, true);
+        // An explicit height supersedes intrinsic height in ResolveConstraints.
+        // Keep the first measurement (including input flushing), but avoid a second
+        // DOM write/read/restore cycle whose result would be discarded.
+        double height = Microsoft.Maui.Primitives.Dimension.IsExplicitSet(VirtualView.Height)
+            ? VirtualView.Height
+            : Browser.Measure(PlatformView.Id, width, heightConstraint, true);
         return new Size(
             width,
             LayoutManager.ResolveConstraints(heightConstraint, VirtualView.Height, height, VirtualView.MinimumHeight, VirtualView.MaximumHeight));
