@@ -589,7 +589,7 @@ test('sample MSBuild only publishes MAUI; npm owns preparation, TypeScript and s
     const manifest = JSON.parse(readFileSync(join(sample, 'package.json'), 'utf8'));
     assert.equal(manifest.scripts.build, 'npm run build:maui-app && npm run build:ts && npm run build:site');
     assert.equal(manifest.scripts['build:maui-app'], 'dotnet publish BrowserSample.csproj');
-    assert.equal(manifest.scripts['prepare:maui-bridge'], 'node scripts/prepare-maui.mjs');
+    assert.equal(manifest.scripts['prepare:maui-bridge'], 'node scripts/prepare-maui-bridge.mjs');
     assert.equal(manifest.scripts['build:ts'], 'npm run prepare:maui-bridge && tsc --project tsconfig.json');
     assert.equal(manifest.scripts['build:site'], 'node scripts/build-site.mjs');
     assert.equal(manifest.scripts.check, 'tsc --project tsconfig.json --noEmit');
@@ -598,7 +598,7 @@ test('sample MSBuild only publishes MAUI; npm owns preparation, TypeScript and s
     assert.equal(tsconfig.compilerOptions.outDir, 'artifacts/typescript');
     assert.equal(tsconfig.compilerOptions.rootDirs, undefined);
     assert.equal(tsconfig.compilerOptions.paths, undefined);
-    for (const name of ['prepare-maui.mjs', 'build-site.mjs']) {
+    for (const name of ['prepare-maui-bridge.mjs', 'build-site.mjs']) {
         assert.doesNotMatch(readFileSync(join(sample, 'scripts', name), 'utf8'),
             /node:child_process|ProjectAssetsFile|project\.assets\.json|BrowserBuildDirectory|\.nuget|GetMauiBrowserAssets|PrepareMauiBrowserAssets|src\/Wasm\.FluentUIWebComponents/u,
             'Frontend scripts must consume published files, never query source builds or NuGet caches');

@@ -20,6 +20,7 @@ export class DomBrowserBridge implements BrowserBridge {
     #inputStyles: HTMLStyleElement | undefined;
     #sequence = 0;
     #observer: ResizeObserver | undefined;
+    #viewportSize: { width: number; height: number } | undefined;
     #mountedId = 0;
     #frameId = 0;
     #stopped = false;
@@ -180,18 +181,46 @@ export class DomBrowserBridge implements BrowserBridge {
         }
     }
 
-    // Also passed directly to ResizeObserver, so retain the instance receiver.
-    readonly #requestLayout = (): void => {
-        if (this.#stopped || !this.#mountedId || this.#frameId) {
+    readonly #onViewportResize: ResizeObserverCallback = (entries, observer): void => {
+        // A disconnected observer may still have a queued delivery. Never let an
+        // old mount's dimensions overwrite the current mount's initial size.
+        if (this.#stopped || !this.#mountedId || observer !== this.#observer) {
             return;
         }
+        for (const entry of entries) {
+            if (entry.target !== this.#viewport) {
+                continue;
+            }
+            const { width, height } = entry.contentRect;
+            if (!Number.isFinite(width) || !Number.isFinite(height) || width < 0 || height < 0) {
+                continue;
+            }
+            // Physical CSS layout dimensions, excluding borders and scrollbars.
+            // clientWidth rounds to integers and can make the root overflow a
+            // fractional viewport, toggling auto scrollbars on every layout.
+            // contentRect also avoids transformed bounds and writing-mode axes.
+            this.#viewportSize = { width, height };
+            this.#requestLayout();
+        }
+    };
+
+    // Font and managed invalidations share the same coalesced layout scheduler.
+    readonly #requestLayout = (): void => {
+        if (this.#stopped || !this.#mountedId || !this.#viewportSize || this.#frameId) {
+            return;
+        }
+        const observer = this.#observer;
         this.#frameId = requestAnimationFrame(() => {
+            if (observer !== this.#observer) {
+                return;
+            }
             this.#frameId = 0;
-            if (this.#stopped || !this.#mountedId) {
+            const size = this.#viewportSize;
+            if (this.#stopped || !this.#mountedId || !size || size.width <= 0 || size.height <= 0) {
                 return;
             }
             this.#invoke(() => {
-                this.#getApi().LayoutTick(this.#viewport.clientWidth, this.#viewport.clientHeight);
+                this.#getApi().LayoutTick(size.width, size.height);
             });
         });
     };
@@ -202,6 +231,7 @@ export class DomBrowserBridge implements BrowserBridge {
         }
         this.#observer?.disconnect();
         this.#observer = undefined;
+        this.#viewportSize = undefined;
         document.fonts.removeEventListener('loadingdone', this.#requestLayout);
         document.fonts.removeEventListener('loadingerror', this.#requestLayout);
         cancelAnimationFrame(this.#frameId);
@@ -358,13 +388,15 @@ export class DomBrowserBridge implements BrowserBridge {
         }
         this.#viewport.append(this.#get(id));
         this.#mountedId = id;
-        this.#observer = new ResizeObserver(this.#requestLayout);
+        this.#viewportSize = undefined;
+        this.#observer = new ResizeObserver(this.#onViewportResize);
         this.#observer.observe(this.#viewport);
         // Fonts first used by mounted controls can load after startup's fonts.ready.
         // Reuse the coalesced root layout and keep listeners owned by this mount.
         document.fonts.addEventListener('loadingdone', this.#requestLayout);
         document.fonts.addEventListener('loadingerror', this.#requestLayout);
-        this.#requestLayout();
+        // The initial observer delivery supplies the first fractional size. Do
+        // not queue an integer fallback layout before that delivery arrives.
     }
 
     #subscribeClick(id: number): void {

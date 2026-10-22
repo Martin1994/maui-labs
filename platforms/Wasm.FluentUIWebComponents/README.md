@@ -113,6 +113,30 @@ The internal interop distinguishes JavaScript **properties** (`textContent`, `di
 
 In both cases, MAUI owns layout and the backend owns element lifetime. The bridge manages handles and DOM operations, not a second control-kind mapping. Component-specific input or style adaptations belong beside their handlers; see [BrowserEntryHandler](src/Wasm.FluentUIWebComponents/Handlers/BrowserEntryHandler.cs) for the input policy and the reasons for its adapter.
 
+### Browser mount and scrolling
+
+The host page supplies a dedicated, bounded viewport for the MAUI window, with
+`position: relative` and a width and height determined by the host layout, not by
+the mounted application's content. Percentage heights need a containing block
+with a definite height. Keep padding on an outer wrapper: the MAUI root starts at
+the mount's padding edge, and a padded mount is not currently supported.
+
+The bridge uses `ResizeObserver.contentRect` for fractional content-box dimensions
+in CSS layout pixels, excluding borders and occupied scrollbar space. It waits
+for the initial size notification before the first layout, and retains the latest
+observed size for font and managed layout invalidations. It does not round through
+`clientWidth`/`clientHeight`, scale by devicePixelRatio, or use transformed visual
+bounds. Zero-sized mounts defer layout until a positive size is observed.
+
+The sample uses `overflow: hidden` on its mount and MAUI `ScrollView` for application
+scrolling, but hiding mount overflow is not required to prevent resize loops.
+A bounded, zero-padding mount can use `overflow: auto` or `overflow: scroll`;
+the backend tracks the resulting content-box size without rounding the MAUI root
+past the viewport and repeatedly toggling host scrollbars. The surrounding HTML
+document and inner MAUI ScrollViews retain their own scrolling behavior. This
+does not imply support for content-sized mounts or every nested-scroll layout.
+Business XAML should not compensate with fixed widths or scrollbar-size offsets.
+
 ### Scheduling and animation
 
 `Dispatcher.CreateTimer()` returns an `IDispatcherTimer` with one-shot/repeating behavior, cancellation and restart handling. Changing a running timer's interval restarts its countdown. Active timers are stopped when the dispatcher is disposed. `ITicker` is driven by rAF and supplied to the actual MAUI animation manager, rather than a parallel animation implementation. Browser background throttling still applies: timers are not precision clocks, rAF may pause, and MAUI uses elapsed wall time when animations resume. Worker-thread dispatch and system reduced-motion integration are not provided yet.

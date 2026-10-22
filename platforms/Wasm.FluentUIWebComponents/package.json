@@ -6,7 +6,7 @@
     "scripts": {
         "build": "node scripts/build-web.mjs",
         "pretest:interop": "dotnet build tools/Wasm.FluentUIWebComponents.CodeGen/Wasm.FluentUIWebComponents.CodeGen.csproj -c Release --nologo",
-        "test:interop": "node --test scripts/test/browser-interop.test.mjs",
+        "test:interop": "node --test scripts/test/browser-interop.test.mjs scripts/test/browser-viewport.test.mjs",
         "test:interop:build": "node --test scripts/test/browser-build.test.mjs"
     },
     "dependencies": {
