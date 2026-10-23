@@ -1,0 +1,11 @@
+<Project>
+  <!-- NuGet imports this file automatically. ProjectReference uses the backend's Content
+       directly; both providers expose the same filenames in the consumer's publish output. -->
+  <ItemGroup>
+    <Content Include="$(MSBuildThisFileDirectory)../browser-assets/maui-browser.js;$(MSBuildThisFileDirectory)../browser-assets/maui-browser.d.ts;$(MSBuildThisFileDirectory)../browser-assets/dotnet.d.ts"
+             CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest">
+      <TargetPath>%(Filename)%(Extension)</TargetPath>
+    </Content>
+  </ItemGroup>
+  <Import Project="MauiBrowser.AppAssets.targets" Condition="'$(IsFluentBrowserBackend)' != 'true'" />
+</Project>

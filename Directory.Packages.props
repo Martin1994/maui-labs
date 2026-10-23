@@ -44,7 +44,7 @@
     <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="$(MicrosoftCodeAnalysisAnalyzersVersion)" />
   </ItemGroup>
 
-  <ItemGroup Label="FluentWasmCodeGen" Condition="'$(MSBuildProjectName)' == 'Wasm.FluentUIWebComponents.CodeGen'">
+  <ItemGroup Label="FluentBrowserCodeGen" Condition="'$(MSBuildProjectName)' == 'Browser.FluentUIWebComponents.CodeGen'">
     <PackageVersion Include="Microsoft.CodeAnalysis.Workspaces.MSBuild" Version="$(MicrosoftCodeAnalysisCSharpVersion)" />
     <PackageVersion Include="Microsoft.Build.Locator" Version="1.7.8" />
   </ItemGroup>
@@ -78,7 +78,7 @@
   </ItemGroup>
 
   <!-- Experimental browser backend; host/runtime versions must match. -->
-  <ItemGroup Label="FluentWasm" Condition="'$(IsFluentWasmBackend)' == 'true'">
+  <ItemGroup Label="FluentBrowser" Condition="'$(IsFluentBrowserBackend)' == 'true'">
     <PackageVersion Include="Microsoft.DotNet.ILCompiler.LLVM" Version="10.0.0-rc.1.26357.1" />
     <PackageVersion Include="runtime.$(NETCoreSdkPortableRuntimeIdentifier).Microsoft.DotNet.ILCompiler.LLVM" Version="10.0.0-rc.1.26357.1" />
   </ItemGroup>

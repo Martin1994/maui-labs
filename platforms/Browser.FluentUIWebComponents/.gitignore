@@ -1,0 +1,10 @@
+/g[0-9]*/
+/docs/
+**/bin/
+**/obj/
+artifacts/
+node_modules/
+src/Browser.FluentUIWebComponents/wwwroot/maui-browser.js
+src/Browser.FluentUIWebComponents/wwwroot/*.d.ts
+src/Browser.FluentUIWebComponents/web/dotnet.d.ts
+src/Browser.FluentUIWebComponents/web/generated/

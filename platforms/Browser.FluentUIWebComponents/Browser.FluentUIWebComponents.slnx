@@ -1,0 +1,9 @@
+<Solution>
+  <Project Path="tools/Browser.FluentUIWebComponents.CodeGen/Browser.FluentUIWebComponents.CodeGen.csproj" />
+  <Project Path="src/Browser.FluentUIWebComponents/Browser.FluentUIWebComponents.csproj" />
+  <Folder Name="/src/" />
+  <Folder Name="/tools/">
+    <Project Path="tools/Browser.FluentUIWebComponents.Assets/Browser.FluentUIWebComponents.Assets.csproj" />
+  </Folder>
+  <Project Path="samples/BrowserSample/BrowserSample.csproj" />
+</Solution>

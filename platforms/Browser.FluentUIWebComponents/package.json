@@ -1,0 +1,25 @@
+{
+    "name": "@maui-fluent-ui-web-component/backend",
+    "version": "0.0.0",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "build": "node scripts/build-web.mjs",
+        "pretest:behaviour": "dotnet build tools/Browser.FluentUIWebComponents.CodeGen/Browser.FluentUIWebComponents.CodeGen.csproj -c Release --nologo",
+        "test:behaviour": "node --test \"scripts/test/*.behaviour.test.mjs\"",
+        "test:build": "node --test --test-concurrency=1 \"scripts/test/*.build.test.mjs\""
+    },
+    "dependencies": {
+        "@fluentui/tokens": "1.0.0-alpha.24",
+        "@fluentui/web-components": "3.1.3",
+        "@microsoft/fast-element": "3.1.0",
+        "@microsoft/focusgroup-polyfill": "1.6.0"
+    },
+    "devDependencies": {
+        "esbuild": "0.28.2",
+        "typescript": "5.9.3"
+    },
+    "engines": {
+        "node": ">=22"
+    }
+}

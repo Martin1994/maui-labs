@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Application xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:fluent="clr-namespace:Microsoft.Maui.Platforms.Browser.FluentUIWebComponents;assembly=Microsoft.Maui.Platforms.Browser.FluentUIWebComponents"
+             xmlns:styles="clr-namespace:FluentBrowserSample.Resources.Styles"
+             x:Class="FluentBrowserSample.App">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <fluent:FluentThemeResources />
+                <styles:AppStyles />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

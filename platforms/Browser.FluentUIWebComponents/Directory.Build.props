@@ -1,0 +1,27 @@
+<Project>
+  <Import Project="../../eng/Versions.props" />
+  <PropertyGroup>
+    <IsFluentBrowserBackend>true</IsFluentBrowserBackend>
+    <TargetFramework>net10.0</TargetFramework>
+    <RuntimeIdentifier>browser-wasm</RuntimeIdentifier>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <IsShipping>false</IsShipping>
+    <IsPackable>false</IsPackable>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <DotNetJsApi>true</DotNetJsApi>
+    <PublishTrimmed>true</PublishTrimmed>
+    <TrimMode>full</TrimMode>
+    <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+    <EnableAotAnalyzer>true</EnableAotAnalyzer>
+    <SuppressTrimAnalysisWarnings>false</SuppressTrimAnalysisWarnings>
+    <SuppressAotAnalysisWarnings>false</SuppressAotAnalysisWarnings>
+    <TrimmerSingleWarn>false</TrimmerSingleWarn>
+    <MauiImplicitCastOperatorsUsageViaReflectionSupport>false</MauiImplicitCastOperatorsUsageViaReflectionSupport>
+    <MauiQueryPropertyAttributeSupport>false</MauiQueryPropertyAttributeSupport>
+    <JsonSerializerIsReflectionEnabledByDefault>false</JsonSerializerIsReflectionEnabledByDefault>
+    <DefaultItemExcludes>$(DefaultItemExcludes);artifacts/**;node_modules/**</DefaultItemExcludes>
+  </PropertyGroup>
+</Project>
