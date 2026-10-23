@@ -1,198 +1,188 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             x:Class="FluentBrowserSample.MainPage"
-             AutomationId="main-page"
-             BackgroundColor="{DynamicResource Fluent.CanvasColor}">
+             xmlns:vm="clr-namespace:FluentBrowserSample.ViewModels"
+             xmlns:views="clr-namespace:FluentBrowserSample.Views"
+             x:Class="FluentBrowserSample.MainPage" x:DataType="vm:CardStudioViewModel"
+             AutomationId="main-page" BackgroundColor="{DynamicResource Fluent.CanvasColor}">
     <ScrollView AutomationId="page-scroll">
-        <VerticalStackLayout Padding="28,36" Spacing="24" MaximumWidthRequest="1040"
+        <VerticalStackLayout x:Name="PageContent" Padding="28,36" Spacing="28" MaximumWidthRequest="1040"
                              HorizontalOptions="Center">
             <Grid x:Name="HeaderGrid" ColumnDefinitions="*" RowDefinitions="Auto,Auto"
                   ColumnSpacing="24" RowSpacing="12" AutomationId="page-header">
-                <VerticalStackLayout Spacing="4" VerticalOptions="Start" AutomationId="header-title">
-                    <Label Text="MAUI LABS / FLUENT WEB COMPONENTS" FontSize="12" FontAttributes="Bold"
-                              TextColor="{DynamicResource Fluent.MutedColor}" />
-                    <Label Text="Experimental backend preview" FontSize="12"
-                              TextColor="{DynamicResource Fluent.MutedColor}" />
+                <VerticalStackLayout Spacing="4" VerticalOptions="Start">
+                    <Label Text="MAUI LABS / FLUENT WEB COMPONENTS" Style="{StaticResource HeaderEyebrow}" />
+                    <Label Text="Experimental browser backend" Style="{StaticResource Metadata}" />
                 </VerticalStackLayout>
                 <VerticalStackLayout x:Name="ThemeSelector" Grid.Row="1" Spacing="8"
-                                     HorizontalOptions="End" VerticalOptions="Start" AutomationId="theme-selector">
-                    <HorizontalStackLayout Spacing="8">
-                        <Button Text="System" Clicked="OnSystemThemeClicked" AutomationId="theme-system" />
-                        <Button Text="Light" Clicked="OnLightThemeClicked" AutomationId="theme-light" />
-                        <Button Text="Dark" Clicked="OnDarkThemeClicked" AutomationId="theme-dark" />
-                    </HorizontalStackLayout>
-                    <Label x:Name="ThemeStatusLabel" FontSize="12" AutomationId="theme-status"
-                           HorizontalTextAlignment="End"
-                              TextColor="{DynamicResource Fluent.MutedColor}" />
+                                     HorizontalOptions="End" VerticalOptions="Start">
+                    <Grid x:Name="ThemeButtons" ColumnDefinitions="Auto,Auto,Auto" ColumnSpacing="8" RowSpacing="8">
+                        <Button x:Name="SystemThemeButton" Text="System" Clicked="OnSystemThemeClicked" AutomationId="theme-system" />
+                        <Button x:Name="LightThemeButton" Grid.Column="1" Text="Light" Clicked="OnLightThemeClicked" AutomationId="theme-light" />
+                        <Button x:Name="DarkThemeButton" Grid.Column="2" Text="Dark" Clicked="OnDarkThemeClicked" AutomationId="theme-dark" />
+                    </Grid>
+                    <Label x:Name="ThemeStatusLabel" Style="{StaticResource Metadata}" AutomationId="theme-status"
+                           HorizontalTextAlignment="End" />
                 </VerticalStackLayout>
             </Grid>
-            <VerticalStackLayout Spacing="12">
-                <Label Text="Written in XAML.&#10;Running in your browser." FontSize="40" FontAttributes="Bold"
-                      TextColor="{DynamicResource Fluent.BrandForegroundColor}" />
-                <Label Text="A familiar way to build something new. This entire page is a MAUI app — compiled to WebAssembly, rendered with native web elements."
-                      TextColor="{DynamicResource Fluent.MutedColor}" />
-            </VerticalStackLayout>
-
-                        <Grid x:Name="TechnologyGrid" ColumnDefinitions="*,*" RowDefinitions="Auto,Auto"
-                                    ColumnSpacing="12" RowSpacing="12">
-                                <Border Padding="18" StrokeShape="RoundRectangle 12">
-                    <VerticalStackLayout Spacing="8">
-                        <Label Text="XAML" FontSize="22" FontAttributes="Bold" />
-                           <Label Text="Defines the page" FontSize="13"
-                               TextColor="{DynamicResource Fluent.MutedColor}" />
-                    </VerticalStackLayout>
-                </Border>
-                <Border Grid.Column="1" Padding="18" StrokeShape="RoundRectangle 12">
-                    <VerticalStackLayout Spacing="8">
-                        <Label Text="MAUI" FontSize="22" FontAttributes="Bold" />
-                           <Label Text="Owns layout and events" FontSize="13"
-                               TextColor="{DynamicResource Fluent.MutedColor}" />
-                    </VerticalStackLayout>
-                </Border>
-                <Border Grid.Row="1" Padding="18" StrokeShape="RoundRectangle 12">
-                    <VerticalStackLayout Spacing="8">
-                        <Label Text="Fluent" FontSize="22" FontAttributes="Bold" />
-                           <Label Text="Draws real web controls" FontSize="13"
-                               TextColor="{DynamicResource Fluent.MutedColor}" />
-                    </VerticalStackLayout>
-                </Border>
-                <Border Grid.Row="1" Grid.Column="1" Padding="18"
-                    StrokeShape="RoundRectangle 12" AutomationId="nativeaot-card">
-                    <VerticalStackLayout Spacing="8">
-                        <Label Text="NativeAOT" FontSize="22" FontAttributes="Bold" />
-                           <Label Text="LLVM compilation to WebAssembly" FontSize="13"
-                               TextColor="{DynamicResource Fluent.MutedColor}" />
-                    </VerticalStackLayout>
-                </Border>
-            </Grid>
-
-                <Border Padding="24" StrokeShape="RoundRectangle 16">
-                <VerticalStackLayout Spacing="18">
-                    <HorizontalStackLayout Spacing="0">
-                        <Label Text="Events stay in" FontSize="22" FontAttributes="Bold" />
-                        <Label Text=".NET" FontSize="22" FontAttributes="Bold" Margin="6,0,0,0"
-                               TextColor="{AppThemeBinding Light={StaticResource DotNetBrandColor}, Dark={StaticResource DotNetBrandDarkColor}}" />
-                        <Label Text="." FontSize="22" FontAttributes="Bold" />
-                    </HorizontalStackLayout>
-                    <Label x:Name="CounterLabel" Text="Clicked 0 times" FontSize="36" FontAttributes="Bold"
-                           AutomationId="counter-label" />
-                    <HorizontalStackLayout Spacing="12">
-                        <!-- Leave colors unset so Fluent's neutral rest/hover/pressed tokens apply. -->
-                        <Button Text="Increment" Clicked="OnIncrementClicked" FontFamily="OpenSansSample"
-                                AutomationId="increment-button" />
-                        <Button Text="Reset" Clicked="OnResetClicked" AutomationId="reset-button" />
-                    </HorizontalStackLayout>
-                    <Label Text="The buttons use MAUI's normal Clicked event. The handlers update a named Label — no JavaScript in the page's code-behind."
-                              FontSize="14" TextColor="{DynamicResource Fluent.MutedColor}" />
-                </VerticalStackLayout>
-            </Border>
-
-            <Border Padding="24" StrokeShape="RoundRectangle 16">
-                <VerticalStackLayout Spacing="12">
-                    <Label Text="Text input. Native interaction." FontSize="22" FontAttributes="Bold" />
-                    <Label Text="A Fluent input sends text, focus and selection changes to ordinary MAUI events. The buttons below update it from C#."
-                           FontSize="14" TextColor="{DynamicResource Fluent.MutedColor}" />
-                          <Label Text="This Entry uses Open Sans, loaded from the packaged OpenSans-Regular.ttf font."
-                              FontSize="14" TextColor="{DynamicResource Fluent.MutedColor}" />
-                    <Entry x:Name="DemoEntry" Placeholder="Type here — including 中文" FontFamily="OpenSans-Regular.ttf"
-                           MaxLength="80" IsSpellCheckEnabled="False" ReturnType="Done" SemanticProperties.Description="Text interaction example"
-                           TextChanged="OnEntryTextChanged" Completed="OnEntryCompleted"
-                           Focused="OnEntryFocusChanged" Unfocused="OnEntryFocusChanged"
-                           PropertyChanged="OnEntryPropertyChanged" AutomationId="demo-entry" />
-                    <Label x:Name="InputStatusLabel" Text="Text: (empty)" FontSize="13" AutomationId="input-status" />
-                    <Label x:Name="SelectionStatusLabel" Text="Selection: 0 + 0" FontSize="13" AutomationId="selection-status" />
-                    <Label x:Name="FocusStatusLabel" Text="Focus: False" FontSize="13" AutomationId="focus-status" />
-                    <Label x:Name="CompletedStatusLabel" Text="Completed: 0" FontSize="13" AutomationId="completed-status" />
-                    <HorizontalStackLayout Spacing="8">
-                        <Button Text="Set text" Clicked="OnSetInputClicked" AutomationId="input-set" />
-                        <Button Text="Select" Clicked="OnSelectInputClicked" AutomationId="input-select" />
-                        <Button Text="Clear" Clicked="OnClearInputClicked" AutomationId="input-clear" />
-                    </HorizontalStackLayout>
-                </VerticalStackLayout>
-            </Border>
-
-            <Border Padding="24" StrokeShape="RoundRectangle 16">
-                <VerticalStackLayout Spacing="12">
-                    <Label Text="Packaged assets. Standard MAUI declarations." FontSize="22" FontAttributes="Bold" />
-                    <Label Text="Open Sans via AddFont: this Label and Increment use the alias; the text input uses the registered filename."
-                           FontFamily="OpenSansSample" AutomationId="asset-font-label" />
-                          <Label Text="Images keep their original bytes. Both SVG frames are 160 by 160: AspectFit leaves space around a circle; Fill stretches it into an ellipse. PNG and JPEG frames are 160 by 100."
-                           FontSize="14" TextColor="{DynamicResource Fluent.MutedColor}" />
-                    <Label Text="SVG (.png alias) / AspectFit" FontSize="14" />
-                          <Image Source="asset_shapes.png" WidthRequest="160" HeightRequest="160" Aspect="AspectFit"
-                              BackgroundColor="#CBD5E1"
-                           HorizontalOptions="Start" AutomationId="asset-svg-png"
-                              SemanticProperties.Description="Colored geometric shapes with a round circle and gray space above and below" />
-                    <Label Text="SVG (.svg name) / Fill" FontSize="14" />
-                          <Image Source="asset_shapes.svg" WidthRequest="160" HeightRequest="160" Aspect="Fill"
-                              BackgroundColor="#CBD5E1"
-                           HorizontalOptions="Start" AutomationId="asset-svg-direct"
-                              SemanticProperties.Description="The same colored shapes stretched to fill the square, with a tall ellipse instead of a circle" />
-                    <Label Text="PNG / Center" FontSize="14" />
-                    <Image Source="sample_bot.png" WidthRequest="160" HeightRequest="100" Aspect="Center"
-                           HorizontalOptions="Start" AutomationId="asset-png"
-                           SemanticProperties.Description="The .NET bot, centered and cropped without scaling" />
-                    <Label Text="JPEG / AspectFill" FontSize="14" />
-                    <Image Source="sample_popcorn.jpg" WidthRequest="160" HeightRequest="100" Aspect="AspectFill"
-                           HorizontalOptions="Start" AutomationId="asset-jpeg"
-                           SemanticProperties.Description="A bowl of popcorn, scaled and cropped to fill the frame" />
-                    <Label Text="Raw packaging: data/asset-info.json is included in the output, not read by this app. Browser FileSystem APIs are not implemented."
-                           FontSize="14" AutomationId="asset-raw-note" TextColor="{DynamicResource Fluent.MutedColor}" />
-                </VerticalStackLayout>
-            </Border>
-
-            <Border Padding="24" StrokeShape="RoundRectangle 16">
-                <VerticalStackLayout Spacing="12">
-                    <Label Text="Animation. Driven by MAUI." FontSize="22" FontAttributes="Bold" />
-                    <Label Text="Fade this panel with MAUI's animation API. The backend supplies browser frames; application code awaits the animation."
-                           FontSize="14" TextColor="{DynamicResource Fluent.MutedColor}" />
-                    <Border x:Name="AnimationPreview" Padding="16" StrokeShape="RoundRectangle 8" AutomationId="animation-preview">
-                        <Label Text="One animation API, a browser-backed ticker." HorizontalTextAlignment="Center" />
+            <VerticalStackLayout Spacing="14">
+                  <Label Text="Your XAML. A new horizon." Style="{StaticResource PageTitle}" />
+                  <Label Text="A .NET MAUI app, running in your browser." Style="{StaticResource Lead}" />
+                <Label Text="Keep the application model you know. MAUI owns the layout, Fluent supplies real web controls, and NativeAOT compiles your C# to WebAssembly. This page is the example — not a screenshot of one."
+                       Style="{StaticResource MutedBody}" />
+                <Grid x:Name="TechnologyGrid" ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="12">
+                    <Border Style="{StaticResource IntroCard}">
+                        <VerticalStackLayout Spacing="8">
+                            <Label Text="XAML + C#" Style="{StaticResource CardTitle}" />
+                            <Label Text="Source-generated views, typed bindings and ordinary .NET services." Style="{StaticResource Caption}" />
+                        </VerticalStackLayout>
                     </Border>
-                    <Button Text="Animate" Clicked="OnAnimateClicked" HorizontalOptions="Start" AutomationId="animate" />
-                    <Label x:Name="AnimationStatusLabel" Text="Animation: idle" FontSize="13" AutomationId="animation-status" />
-                </VerticalStackLayout>
-            </Border>
-
-            <Border Padding="24" StrokeShape="RoundRectangle 16">
-                <VerticalStackLayout Spacing="12">
-                    <Label Text="Scheduling. On the UI thread." FontSize="22" FontAttributes="Bold" />
-                    <Label Text="A dispatcher timer updates the label five times, then stops. Start it again to restart the sequence."
-                           FontSize="14" TextColor="{DynamicResource Fluent.MutedColor}" />
-                    <Button Text="Start timer" Clicked="OnTimerClicked" HorizontalOptions="Start" AutomationId="timer-start" />
-                    <Label x:Name="TimerStatusLabel" Text="Timer: stopped" FontSize="13" AutomationId="timer-status" />
-                </VerticalStackLayout>
-            </Border>
-
-            <Border Padding="24" StrokeShape="RoundRectangle 16">
-                <VerticalStackLayout Spacing="12">
-                    <Label Text="Layout. Updated at runtime." FontSize="22" FontAttributes="Bold" />
-                    <Label Text="Add, move or remove MAUI views. The layout engine measures the updated content and the backend maintains DOM order."
-                           FontSize="14" TextColor="{DynamicResource Fluent.MutedColor}" />
-                    <HorizontalStackLayout Spacing="8">
-                        <Button Text="Add" Clicked="OnAddItemClicked" AutomationId="item-add" />
-                        <Button Text="Move" Clicked="OnMoveItemClicked" AutomationId="item-move" />
-                        <Button Text="Remove" Clicked="OnRemoveItemClicked" AutomationId="item-remove" />
-                    </HorizontalStackLayout>
-                    <VerticalStackLayout x:Name="DynamicItems" Spacing="4" AutomationId="dynamic-items" />
-                </VerticalStackLayout>
-            </Border>
-
-            <VerticalStackLayout Spacing="8">
-                <Label Text="One framework. Your application." FontSize="22" FontAttributes="Bold" />
-                <Label Text="BrowserSample references a separate backend project. Change MainPage.xaml, publish, and open the result on an ordinary static server."
-                      TextColor="{DynamicResource Fluent.MutedColor}" />
+                    <Border Grid.Column="1" Style="{StaticResource IntroCard}">
+                        <VerticalStackLayout Spacing="8">
+                            <Label Text="MAUI layout" Style="{StaticResource CardTitle}" />
+                            <Label Text="Measure and arrange stay in MAUI. Resize this page to see its Grid adapt." Style="{StaticResource Caption}" />
+                        </VerticalStackLayout>
+                    </Border>
+                    <Border Grid.Row="1" Style="{StaticResource IntroCard}">
+                        <VerticalStackLayout Spacing="8">
+                            <Label Text="Fluent controls" Style="{StaticResource CardTitle}" />
+                            <Label Text="Real web components, browser text input and a shared light/dark palette." Style="{StaticResource Caption}" />
+                        </VerticalStackLayout>
+                    </Border>
+                    <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource IntroCard}">
+                        <VerticalStackLayout Spacing="8">
+                            <Label Text="NativeAOT" Style="{StaticResource CardTitle}" />
+                            <Label Text="LLVM compiles .NET to Wasm. Publish the files to a static web server." Style="{StaticResource Caption}" />
+                        </VerticalStackLayout>
+                    </Border>
+                </Grid>
             </VerticalStackLayout>
-            <VerticalStackLayout Spacing="6">
-                <Label x:Name="StartupLabel" Text="Startup: measuring…" FontSize="13"
-                      TextColor="{DynamicResource Fluent.MutedColor}" AutomationId="startup-time" />
-                <Label x:Name="WasmSizeLabel" Text="Wasm: measuring…" FontSize="13"
-                      TextColor="{DynamicResource Fluent.MutedColor}" AutomationId="wasm-size" />
-                <Label Text="Navigation to first MAUI frame opportunity · Wasm size before HTTP compression"
-                      FontSize="12" TextColor="{DynamicResource Fluent.MutedColor}" />
-                <Button Text="View source on GitHub ↗" Clicked="OnRepositoryClicked"
-                        HorizontalOptions="Start" Margin="0,8,0,0" AutomationId="repository-link" />
+            <Label Text="Try it out" Style="{StaticResource SectionTitle}" />
+            <Border Style="{StaticResource PanelCard}">
+                <VerticalStackLayout Spacing="20">
+                    <Label Text="Demo - Make a card" Style="{StaticResource PanelTitle}" />
+                    <Label Text="Edit text, choose artwork and compare fonts. Try a preset to update the MAUI controls from C#, then make it your own."
+                           Style="{StaticResource MutedBody}" />
+                    <Grid x:Name="EditorGrid" ColumnDefinitions="*" RowDefinitions="Auto,Auto" ColumnSpacing="28" RowSpacing="24">
+                        <VerticalStackLayout Spacing="12">
+                            <Label Text="CARD EDITOR" Style="{StaticResource Eyebrow}" />
+                            <Label Text="Title" Style="{StaticResource FieldLabel}" />
+                            <Entry x:Name="TitleEntry" Text="{Binding Title, Mode=TwoWay}"
+                                   Placeholder="Give your card a title" MaxLength="64"
+                                   ReturnType="Done" Completed="OnEntryCompleted" AutomationId="card-title-input"
+                                   SemanticProperties.Description="Card title" />
+                            <Label Text="Tagline" Style="{StaticResource FieldLabel}" />
+                            <Entry Text="{Binding Tagline, Mode=TwoWay}" Placeholder="Add a little personality"
+                                   MaxLength="100" ReturnType="Done" Completed="OnEntryCompleted"
+                                   AutomationId="card-tagline-input" SemanticProperties.Description="Card tagline" />
+                            <Label Text="Artwork" Style="{StaticResource FieldLabel}" />
+                            <!-- TODO: Replace these explicit choices with a Picker when its browser handler is available. -->
+                            <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                                <Button Text=".NET 10" Command="{Binding SelectRasterCommand, Mode=OneWay}" AutomationId="artwork-raster">
+                                    <Button.Triggers>
+                                        <DataTrigger TargetType="Button" Binding="{Binding IsRasterArtwork, Mode=OneWay}" Value="True">
+                                            <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource DotNetBrandColor}, Dark={StaticResource DotNetBrandDarkColor}}" />
+                                            <Setter Property="TextColor" Value="{AppThemeBinding Light=White, Dark=Black}" />
+                                        </DataTrigger>
+                                    </Button.Triggers>
+                                </Button>
+                                <Button Grid.Column="1" Text=".NET bot" Command="{Binding SelectVectorCommand, Mode=OneWay}" AutomationId="artwork-vector">
+                                    <Button.Triggers>
+                                        <DataTrigger TargetType="Button" Binding="{Binding IsVectorArtwork, Mode=OneWay}" Value="True">
+                                            <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource DotNetBrandColor}, Dark={StaticResource DotNetBrandDarkColor}}" />
+                                            <Setter Property="TextColor" Value="{AppThemeBinding Light=White, Dark=Black}" />
+                                        </DataTrigger>
+                                    </Button.Triggers>
+                                </Button>
+                            </Grid>
+                            <Label Text="{Binding ArtworkDescription, Mode=OneWay}" Style="{StaticResource Hint}" AutomationId="artwork-choice" />
+                            <Label Text="Font" Style="{StaticResource FieldLabel}" />
+                            <!-- TODO: Replace the stateful Button with a native toggle when supported by the backend. -->
+                            <Button Text="{Binding FontToggleText, Mode=OneWay}" Command="{Binding ToggleFontCommand, Mode=OneWay}"
+                                    HorizontalOptions="Start" AutomationId="font-toggle">
+                                <Button.Triggers>
+                                    <DataTrigger TargetType="Button" Binding="{Binding UseCustomFont, Mode=OneWay}" Value="True">
+                                        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource DotNetBrandColor}, Dark={StaticResource DotNetBrandDarkColor}}" />
+                                        <Setter Property="TextColor" Value="{AppThemeBinding Light=White, Dark=Black}" />
+                                    </DataTrigger>
+                                </Button.Triggers>
+                            </Button>
+                            <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                                <Button Text="Try a preset" Command="{Binding NextPresetCommand, Mode=OneWay}" Clicked="OnPresetClicked" AutomationId="preset-next" />
+                                <Button Grid.Column="1" Text="Reset" Command="{Binding ResetCommand, Mode=OneWay}" AutomationId="draft-reset" />
+                            </Grid>
+                            <Label Text="{Binding DraftHint, Mode=OneWay}" Style="{StaticResource Hint}"
+                                   AutomationId="draft-hint" />
+                        </VerticalStackLayout>
+                        <Border x:Name="DraftPreview" Grid.Row="1" Style="{StaticResource PreviewCard}" AutomationId="draft-preview">
+                            <VerticalStackLayout Spacing="14" VerticalOptions="Center">
+                                <Label Text="LIVE PREVIEW" Style="{StaticResource Eyebrow}" HorizontalTextAlignment="Center" />
+                                <Image Source="{Binding Artwork, Mode=OneWay}" WidthRequest="144" HeightRequest="160" Aspect="AspectFit"
+                                       HorizontalOptions="Center" SemanticProperties.Description="The .NET bot" AutomationId="draft-artwork" />
+                                <Label Text="{Binding Title, Mode=OneWay}" Style="{StaticResource PreviewTitle}" FontFamily="{Binding FontFamily, Mode=OneWay}"
+                                       HorizontalTextAlignment="Center" AutomationId="card-title-preview" />
+                                <Label Text="{Binding Tagline, Mode=OneWay}" FontFamily="{Binding FontFamily, Mode=OneWay}" HorizontalTextAlignment="Center"
+                                        Style="{StaticResource MutedBody}" AutomationId="card-tagline-preview" />
+                                    <Label Text=".NET + MAUI + Fluent" Style="{StaticResource BrandMetadata}" HorizontalTextAlignment="Center" />
+                            </VerticalStackLayout>
+                        </Border>
+                    </Grid>
+                    <Button Text="Add card" Command="{Binding AddCardCommand, Mode=OneWay}"
+                            HorizontalOptions="Start" AutomationId="card-add" />
+                      <Label Text="Your cards" Style="{StaticResource PanelTitle}" />
+                    <Label Text="Added cards keep their text, artwork and font. Add at least two to try reordering and playback. Editing the preview does not change these copies."
+                           Style="{StaticResource MutedBody}" />
+                      <Label Text="{Binding BoardSummary, Mode=OneWay}" Style="{StaticResource FieldLabel}" AutomationId="board-summary" />
+                    <views:ArrangedStackLayout x:Name="BoardItems" Spacing="8" AutomationId="board-items" />
+                      <Label Text="{Binding BoardMessage, Mode=OneWay}" Style="{StaticResource Caption}"
+                           AutomationId="board-message" />
+                    <HorizontalStackLayout Spacing="8">
+                        <Button Text="Move first" Command="{Binding MoveFirstCommand, Mode=OneWay}" AutomationId="board-move" />
+                        <Button Text="Remove last" Command="{Binding RemoveLastCommand, Mode=OneWay}" AutomationId="board-remove" />
+                    </HorizontalStackLayout>
+                    <HorizontalStackLayout Spacing="8">
+                        <Button Text="Play cards" Clicked="OnPlayClicked" IsEnabled="{Binding CanPlay, Mode=OneWay}" AutomationId="board-play" />
+                        <Button x:Name="StopPlaybackButton" Text="Stop" Clicked="OnStopClicked" IsEnabled="False" AutomationId="board-stop" />
+                    </HorizontalStackLayout>
+                    <Label x:Name="PlaybackStatusLabel" Text="Playback is off. Motion starts only when you choose Play."
+                           Style="{StaticResource Hint}" AutomationId="playback-status" />
+                    <Label Text="UNDER THE SURFACE" Style="{StaticResource Eyebrow}" />
+                    <Label Text="The editor and preview share a ViewModel through two-way XAML bindings. Commands update the state, and DI supplies the presets. Standard MauiImage and MauiFont declarations package the artwork and Open Sans."
+                           Style="{StaticResource Caption}" />
+                    <Label Text="An observable collection holds your cards. MAUI views follow its changes and update the browser layout. Playback uses a dispatcher timer and MAUI opacity animations. It waits for the reordered cards to finish layout before fading them in."
+                           Style="{StaticResource Caption}" />
+                </VerticalStackLayout>
+            </Border>
+            <VerticalStackLayout Spacing="14">
+                <Label Text="Performance metrics of this page" Style="{StaticResource SectionTitle}" />
+                <Grid x:Name="MetricsGrid" ColumnDefinitions="*" RowDefinitions="Auto,Auto" ColumnSpacing="16" RowSpacing="16">
+                    <Border Style="{StaticResource PanelCard}" AutomationId="startup-metric-card">
+                        <VerticalStackLayout Spacing="8">
+                            <Label x:Name="StartupLabel" Text="Startup: measuring…" Style="{StaticResource PanelTitle}" AutomationId="startup-time" />
+                            <Label Text="Navigation to the first MAUI frame opportunity, including download and runtime initialization. Network, cache and background tabs affect this measurement."
+                                   Style="{StaticResource Caption}" />
+                        </VerticalStackLayout>
+                    </Border>
+                    <Border x:Name="WasmMetricCard" Grid.Row="1" Style="{StaticResource PanelCard}" AutomationId="wasm-metric-card">
+                        <VerticalStackLayout Spacing="8">
+                            <Label x:Name="WasmSizeLabel" Text="Wasm Size: measuring…" Style="{StaticResource PanelTitle}" AutomationId="wasm-size" />
+                            <Label Text="Decoded module size before HTTP compression. This is not transferred bytes, total page weight or runtime memory. Gzip or Brotli can reduce the download."
+                                   Style="{StaticResource Caption}" />
+                        </VerticalStackLayout>
+                    </Border>
+                </Grid>
+            </VerticalStackLayout>
+            <Border Style="{StaticResource Divider}" />
+            <VerticalStackLayout Spacing="12">
+                <!-- TODO: Make README an inline hyperlink when Label supports links. -->
+                <HorizontalStackLayout Spacing="8">
+                    <Button Text="Explore source ↗" Clicked="OnRepositoryClicked" AutomationId="repository-link" />
+                    <Button Text="README ↗" Clicked="OnReadmeClicked" AutomationId="readme-link" />
+                </HorizontalStackLayout>
+                <Label Text="Experimental, not full MAUI parity yet. See README for supported controls and current limitations."
+                       Style="{StaticResource Hint}" />
+                <Label Text="Artwork: .NET bot SVG (CC0), MAUI template PNG (MIT). Font: Open Sans (Apache 2.0). Notices are included with the packaged assets."
+                       Style="{StaticResource Metadata}" />
             </VerticalStackLayout>
         </VerticalStackLayout>
     </ScrollView>

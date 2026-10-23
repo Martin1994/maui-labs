@@ -9,7 +9,8 @@ internal static partial class SampleDiagnostics
     private static readonly CancellationTokenSource Lifetime = new();
     private static JSObject? _module;
 
-    internal const string RepositoryUrl = "https://github.com/Martin1994/maui-labs/tree/fluent-web/platforms/Wasm.FluentUIWebComponents";
+    internal const string RepositoryUrl = "https://github.com/Martin1994/maui-labs/blob/fluent-web/platforms/Wasm.FluentUIWebComponents/samples/BrowserSample/MainPage.xaml";
+    internal const string ReadmeUrl = "https://github.com/Martin1994/maui-labs/blob/fluent-web/platforms/Wasm.FluentUIWebComponents/README.md";
 
     internal static async Task InitializeAsync()
     {

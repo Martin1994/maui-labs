@@ -2,23 +2,14 @@
 <Application xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:fluent="clr-namespace:Microsoft.Maui.Platforms.Wasm.FluentUIWebComponents;assembly=Microsoft.Maui.Platforms.Wasm.FluentUIWebComponents"
+             xmlns:styles="clr-namespace:FluentBrowserSample.Resources.Styles"
              x:Class="FluentBrowserSample.App">
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
                 <fluent:FluentThemeResources />
+                <styles:AppStyles />
             </ResourceDictionary.MergedDictionaries>
-            <!-- App-owned branding remains independent of the Fluent palette. -->
-            <Color x:Key="DotNetBrandColor">#512BD4</Color>
-            <Color x:Key="DotNetBrandDarkColor">#AC99EA</Color>
-            <Style TargetType="Label">
-                <Setter Property="TextColor" Value="{DynamicResource Fluent.ForegroundColor}" />
-                <Setter Property="FontSize" Value="16" />
-            </Style>
-            <Style TargetType="Border">
-                <Setter Property="BackgroundColor" Value="{DynamicResource Fluent.SurfaceColor}" />
-                <Setter Property="Stroke" Value="{DynamicResource Fluent.StrokeColor}" />
-            </Style>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

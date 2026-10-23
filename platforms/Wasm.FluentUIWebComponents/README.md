@@ -133,8 +133,8 @@ or application `@font-face` CSS.
     supplied, otherwise the source filename. For example, an app item linking
     `../Shared/photo.jpg` as `Resources/Images/cover.jpg` is used as `cover.jpg`.
     `Link` may rename a file but cannot change its format/extension.
-- An SVG named `asset_shapes.svg` has **two** image logical names:
-    `asset_shapes.svg` and `asset_shapes.png`. Both resolve to the same unchanged
+- An SVG named `sample_bot_vector.svg` has **two** image logical names:
+    `sample_bot_vector.svg` and `sample_bot_vector.png`. Both resolve to the same unchanged
     `.svg` file. There is no generated PNG and no runtime extension guessing.
 - `MauiFont` registers the file in the catalog; `AddFont("OpenSans-Regular.ttf",
     "OpenSansSample")` registers its application alias at runtime. An item metadata
@@ -283,6 +283,10 @@ Consume entries with `DynamicResource`, for example `TextColor="{DynamicResource
 The dictionary reads the actual `webLightTheme`/`webDarkTheme` values through the backend's interop and refreshes on MAUI effective-theme changes; it does not maintain a separate C# copy of Fluent's hex values. Initial values use `Application.RequestedTheme`, including preferences set before `InitializeComponent()`. MAUI's weak theme event does not keep a removed dictionary alive.
 
 These are backend-specific resources, not a cross-platform MAUI palette. Treat the dictionary's six entries as backend-owned; keep custom branding in separate application keys or explicit control colors. It exports only these preset colors, not all Fluent tokens or computed CSS overrides, and does not introduce a custom-theme API or the obsolete `ISystemResourcesProvider` interface.
+
+Application styles remain app-owned. BrowserSample merges its standard MAUI
+`Resources/Styles/AppStyles.xaml` dictionary after `FluentThemeResources` for semantic
+text and surface styles; the backend does not bundle universal MAUI Fluent styling.
 
 ## Boundaries and known limitations
 

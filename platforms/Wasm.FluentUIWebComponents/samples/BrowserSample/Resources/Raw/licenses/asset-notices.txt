@@ -1,38 +1,31 @@
 BrowserSample asset sources and notices
 
-Paths below are relative to the repository root. Linked binary files are
+Paths below are relative to the repository root. Linked image/font files are
 redistributed unchanged; Link changes their logical filenames only.
-
-asset_shapes.svg and data/asset-info.json
-Original BrowserSample artwork and sample data, under the repository MIT
-license. See repository.txt in this directory.
 
 sample_bot.png
 Source: samples/EssentialsAISample/Resources/Images/dotnet_bot.png
-The .NET bot is .NET Foundation artwork. Upstream .NET brand assets are
-dedicated under CC0 1.0 Universal:
-https://github.com/dotnet/brand
-https://github.com/dotnet/brand/blob/main/LICENSE
-https://creativecommons.org/publicdomain/zero/1.0/
-No endorsement or trademark license is implied.
+Matches dotnet/maui's .NET 10 template image byte-for-byte:
+Revision: 8493d298df4cfe82547bb46fb33c6d3d88b15d4e
+Path: src/Templates/src/templates/maui-mobile/Resources/Images/dotnet_bot.png
+Git blob: 054167e59747d8174d8f31cd0e92e169c55e2206
+https://github.com/dotnet/maui/blob/8493d298df4cfe82547bb46fb33c6d3d88b15d4e/LICENSE.txt
+Distributed under the upstream repository's MIT license; see maui-MIT.txt.
 
-sample_popcorn.jpg
-Source: src/Comet/sample/CometComposeProbe/Resources/drawable/placeholder.jpg
-Identical to the Jetsnack sample fixture:
-https://github.com/android/compose-samples/blob/main/Jetsnack/app/src/main/res/drawable-nodpi/placeholder.jpg
-SHA-256: 78b4bd18fd73e436a060fecd062577f5db89e8442c97f42ab21d515ae1bcc2ac
-Jetsnack: Copyright 2020 The Android Open Source Project, Apache License 2.0.
-See Apache-2.0.txt. Jetsnack identifies its imagery as sourced from Unsplash:
-https://github.com/android/compose-samples/blob/main/Jetsnack/README.md#data
-The photograph is subject to the Unsplash license, not relicensed as MIT:
-https://unsplash.com/license
-Unsplash grants an irrevocable, nonexclusive, worldwide copyright license to
-download, copy, modify, distribute, perform, and use images from Unsplash for
-free, including for commercial purposes, without permission from or attributing
-the photographer or Unsplash. This license does not include the right to compile
-images from Unsplash to replicate a similar or competing service. Images cannot
-be sold without significant modification. This sample uses one photograph to
-demonstrate image rendering, not as a stock-image collection.
+sample_bot_vector.svg (also resolved by the sample_bot_vector.png alias)
+Source: samples/DevFlow.Sample/Resources/Images/dotnet_bot.svg
+The .png alias resolves to the unchanged SVG; no PNG conversion is performed.
+Matches dotnet/brand's illustration after normalizing CRLF/LF line endings:
+Revision: 29878855347e055ff15675471f7043fda3e92cea
+Path: dotnet-bot-illustrations/dotnet-bot/dotnet-bot.svg
+Upstream Git blob: abfaff26a85341a34addc984a849b17077cc5cc6
+https://github.com/dotnet/brand/blob/29878855347e055ff15675471f7043fda3e92cea/README.md#license
+Dedicated under CC0 1.0 Universal:
+https://github.com/dotnet/brand/blob/29878855347e055ff15675471f7043fda3e92cea/LICENSE
+https://creativecommons.org/publicdomain/zero/1.0/
+
+These copyright licenses do not grant trademark rights or imply endorsement.
+See the upstream .NET brand guidelines for usage guidance.
 
 OpenSans-Regular.ttf (registered alias: OpenSansSample)
 Source: samples/DevFlow.Sample/Resources/Fonts/OpenSans-Regular.ttf

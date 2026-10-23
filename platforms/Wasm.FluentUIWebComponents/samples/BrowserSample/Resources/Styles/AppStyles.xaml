@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ResourceDictionary xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+                    x:Class="FluentBrowserSample.Resources.Styles.AppStyles">
+    <!-- App-owned branding remains independent of the Fluent palette. -->
+    <Color x:Key="DotNetBrandColor">#512BD4</Color>
+    <Color x:Key="DotNetBrandDarkColor">#AC99EA</Color>
+
+    <!-- Leave FontFamily unset: preview/snapshot bindings own it; inputs use the default. -->
+    <Style x:Key="Body" TargetType="Label">
+        <Setter Property="TextColor" Value="{DynamicResource Fluent.ForegroundColor}" />
+        <Setter Property="FontSize" Value="16" />
+    </Style>
+    <Style TargetType="Label" BasedOn="{StaticResource Body}" />
+    <Style x:Key="MutedBody" TargetType="Label" BasedOn="{StaticResource Body}">
+        <Setter Property="TextColor" Value="{DynamicResource Fluent.MutedColor}" />
+    </Style>
+    <Style x:Key="Caption" TargetType="Label" BasedOn="{StaticResource MutedBody}">
+        <Setter Property="FontSize" Value="14" />
+    </Style>
+    <Style x:Key="Hint" TargetType="Label" BasedOn="{StaticResource Caption}">
+        <Setter Property="FontSize" Value="13" />
+    </Style>
+    <Style x:Key="Metadata" TargetType="Label" BasedOn="{StaticResource Caption}">
+        <Setter Property="FontSize" Value="12" />
+    </Style>
+    <Style x:Key="HeaderEyebrow" TargetType="Label" BasedOn="{StaticResource Metadata}">
+        <Setter Property="FontAttributes" Value="Bold" />
+    </Style>
+    <Style x:Key="Eyebrow" TargetType="Label" BasedOn="{StaticResource Body}">
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="TextColor" Value="{DynamicResource Fluent.BrandForegroundColor}" />
+    </Style>
+    <Style x:Key="FieldLabel" TargetType="Label" BasedOn="{StaticResource Body}">
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="FontAttributes" Value="Bold" />
+    </Style>
+    <Style x:Key="CardTitle" TargetType="Label" BasedOn="{StaticResource Body}">
+        <Setter Property="FontSize" Value="20" />
+        <Setter Property="FontAttributes" Value="Bold" />
+    </Style>
+    <Style x:Key="SectionTitle" TargetType="Label" BasedOn="{StaticResource CardTitle}">
+        <Setter Property="FontSize" Value="26" />
+    </Style>
+    <Style x:Key="PanelTitle" TargetType="Label" BasedOn="{StaticResource CardTitle}">
+        <Setter Property="FontSize" Value="22" />
+    </Style>
+    <Style x:Key="SnapshotTitle" TargetType="Label" BasedOn="{StaticResource CardTitle}">
+        <Setter Property="FontSize" Value="19" />
+    </Style>
+    <Style x:Key="PageTitle" TargetType="Label" BasedOn="{StaticResource CardTitle}">
+        <Setter Property="FontSize" Value="40" />
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource DotNetBrandColor}, Dark={StaticResource DotNetBrandDarkColor}}" />
+    </Style>
+    <Style x:Key="Lead" TargetType="Label" BasedOn="{StaticResource CardTitle}">
+        <Setter Property="FontSize" Value="23" />
+    </Style>
+    <Style x:Key="PreviewTitle" TargetType="Label" BasedOn="{StaticResource CardTitle}">
+        <Setter Property="FontSize" Value="28" />
+    </Style>
+    <Style x:Key="BrandMetadata" TargetType="Label" BasedOn="{StaticResource Metadata}">
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource DotNetBrandColor}, Dark={StaticResource DotNetBrandDarkColor}}" />
+    </Style>
+
+    <Style x:Key="CardSurface" TargetType="Border">
+        <Setter Property="BackgroundColor" Value="{DynamicResource Fluent.SurfaceColor}" />
+        <Setter Property="Stroke" Value="{DynamicResource Fluent.StrokeColor}" />
+    </Style>
+    <Style TargetType="Border" BasedOn="{StaticResource CardSurface}" />
+    <Style x:Key="IntroCard" TargetType="Border" BasedOn="{StaticResource CardSurface}">
+        <Setter Property="Padding" Value="18" />
+        <Setter Property="StrokeShape" Value="RoundRectangle 12" />
+    </Style>
+    <Style x:Key="PanelCard" TargetType="Border" BasedOn="{StaticResource CardSurface}">
+        <Setter Property="Padding" Value="24" />
+        <Setter Property="StrokeShape" Value="RoundRectangle 16" />
+    </Style>
+    <Style x:Key="PreviewCard" TargetType="Border" BasedOn="{StaticResource PanelCard}">
+        <Setter Property="StrokeShape" Value="RoundRectangle 12" />
+        <Setter Property="BackgroundColor" Value="{DynamicResource Fluent.CanvasColor}" />
+    </Style>
+    <!-- MAUI has no general page Separator control; use a thin Border. -->
+    <Style x:Key="Divider" TargetType="Border" BasedOn="{StaticResource CardSurface}">
+        <Setter Property="HeightRequest" Value="1" />
+        <Setter Property="StrokeThickness" Value="0" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="BackgroundColor" Value="{DynamicResource Fluent.StrokeColor}" />
+    </Style>
+</ResourceDictionary>

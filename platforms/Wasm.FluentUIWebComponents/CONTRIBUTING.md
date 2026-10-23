@@ -140,16 +140,18 @@ npm run test:build
 ```
 
 The initial build provides restored MAUI references and Release package inputs.
-`test:behaviour` combines the JS, contract and managed checks; its pretest hook builds
-CodeGen but does not restore the backend. `test:build` runs the two build
+`test:behaviour` runs the backend JS, contract and managed checks, then delegates to
+`npm test` in `samples/BrowserSample`, keeping sample coverage in the full command.
+Its pretest hook builds CodeGen but does not restore the backend. `test:build` runs the two build
 suites serially and has no setup hook. Keep the initial build for cold checkouts
 rather than relying on an earlier developer build or test execution order.
 
-Both commands discover files by suffix in `scripts/test/`: use
-`*.behaviour.test.mjs` for the first two validation layers and `*.build.test.mjs`
-for build/distribution integration. New suites belong in this directory with the
-appropriate suffix; no package-script file list needs updating. The quoted globs
-are expanded by Node, not the shell, and exclude helper files and temporary artifacts.
+Backend suites belong in product `scripts/test/`: `*.behaviour.test.mjs` for
+behavior checks and `*.build.test.mjs` for build/distribution integration.
+Sample suites and fixtures belong in `samples/BrowserSample/scripts/test/`, where
+the sample's `npm test` discovers `*.behaviour.test.mjs`. Add suites under their
+owner with the appropriate suffix; no package-script file list needs updating.
+Node expands the quoted globs, excluding helper files and temporary artifacts.
 
 For JS-only work, no .NET setup is needed:
 
@@ -160,7 +162,9 @@ node --test scripts/test/browser-viewport.behaviour.test.mjs scripts/test/browse
 
 For a focused run, use `node --test <suite-path>` after satisfying the prerequisites
 in that file's JSDoc. For example, the interop suite requires a built Release
-generator, while managed asset tests require restored backend references.
+generator, while managed asset tests require restored backend references. See the
+[sample testing guidance](samples/BrowserSample/README.md#sample-regression-coverage)
+for its portable-reference prerequisites and browser verification boundaries.
 
 **Build side effects:** build integration cleans/rebuilds backend outputs and
 creates local packages. Do not overlap it with another backend build, clean, pack,
@@ -200,6 +204,9 @@ Choose the browser checks relevant to the change:
 - **Native and distribution behavior:** trimming/AOT diagnostics, actual external
   package startup, and HTTP MIME/cache behavior. Test cold and warm starts separately
   on a visible page; a no-store development server is not a warm-cache benchmark.
+
+For sample UI changes, follow the concise
+[BrowserSample verification checks](samples/BrowserSample/README.md#sample-regression-coverage).
 
 Record the toolchain/browser versions, serving configuration and checks performed.
 Cross-browser behavior, performance and long-running resource retention require

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Grid xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+      xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+      xmlns:models="clr-namespace:FluentBrowserSample.Models"
+      x:Class="FluentBrowserSample.Views.BoardCard"
+      x:DataType="models:CardDesign"
+      ColumnDefinitions="64,*" ColumnSpacing="16" Padding="16"
+      BackgroundColor="{DynamicResource Fluent.CanvasColor}">
+    <Image Source="{Binding Artwork, Mode=OneWay}" WidthRequest="64" HeightRequest="72"
+           Aspect="AspectFit" SemanticProperties.Description="The .NET bot" />
+    <VerticalStackLayout Grid.Column="1" Spacing="4" VerticalOptions="Center">
+       <Label Text="{Binding Title, Mode=OneWay}" Style="{StaticResource SnapshotTitle}" FontFamily="{Binding FontFamily, Mode=OneWay}" />
+         <Label Text="{Binding Tagline, Mode=OneWay}" FontFamily="{Binding FontFamily, Mode=OneWay}"
+         Style="{StaticResource Caption}" />
+    </VerticalStackLayout>
+</Grid>
