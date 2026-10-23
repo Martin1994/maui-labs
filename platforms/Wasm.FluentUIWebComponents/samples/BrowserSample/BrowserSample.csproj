@@ -25,6 +25,18 @@
     <MauiXaml Include="**/*.xaml" Exclude="$(DefaultItemExcludes)" Inflator="SourceGen" />
     <UnmanagedEntryPointsAssembly Include="Microsoft.Maui.Platforms.Wasm.FluentUIWebComponents" />
   </ItemGroup>
+  <ItemGroup>
+    <MauiImage Include="Resources/Images/asset_shapes.svg" />
+    <!-- Reuse tracked fixtures without copying binaries or referencing another app project. -->
+    <MauiImage Include="../../../../samples/EssentialsAISample/Resources/Images/dotnet_bot.png"
+               Link="Resources/Images/sample_bot.png" />
+    <MauiImage Include="../../../../src/Comet/sample/CometComposeProbe/Resources/drawable/placeholder.jpg"
+               Link="Resources/Images/sample_popcorn.jpg" />
+    <MauiFont Include="../../../../samples/DevFlow.Sample/Resources/Fonts/OpenSans-Regular.ttf"
+              Link="Resources/Fonts/OpenSans-Regular.ttf" />
+    <MauiAsset Include="Resources/Raw/**/*" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
+    <MauiAsset Include="../../../../LICENSE" Link="licenses/repository.txt" />
+  </ItemGroup>
   <Target Name="PackageSite">
     <Error Condition="!Exists('$(SiteDirectory)')"
            Text="Site not found at '$(SiteDirectory)'. Run npm run build first, or set SiteDirectory to an existing collected site." />

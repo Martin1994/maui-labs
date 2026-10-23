@@ -1,0 +1,42 @@
+BrowserSample asset sources and notices
+
+Paths below are relative to the repository root. Linked binary files are
+redistributed unchanged; Link changes their logical filenames only.
+
+asset_shapes.svg and data/asset-info.json
+Original BrowserSample artwork and sample data, under the repository MIT
+license. See repository.txt in this directory.
+
+sample_bot.png
+Source: samples/EssentialsAISample/Resources/Images/dotnet_bot.png
+The .NET bot is .NET Foundation artwork. Upstream .NET brand assets are
+dedicated under CC0 1.0 Universal:
+https://github.com/dotnet/brand
+https://github.com/dotnet/brand/blob/main/LICENSE
+https://creativecommons.org/publicdomain/zero/1.0/
+No endorsement or trademark license is implied.
+
+sample_popcorn.jpg
+Source: src/Comet/sample/CometComposeProbe/Resources/drawable/placeholder.jpg
+Identical to the Jetsnack sample fixture:
+https://github.com/android/compose-samples/blob/main/Jetsnack/app/src/main/res/drawable-nodpi/placeholder.jpg
+SHA-256: 78b4bd18fd73e436a060fecd062577f5db89e8442c97f42ab21d515ae1bcc2ac
+Jetsnack: Copyright 2020 The Android Open Source Project, Apache License 2.0.
+See Apache-2.0.txt. Jetsnack identifies its imagery as sourced from Unsplash:
+https://github.com/android/compose-samples/blob/main/Jetsnack/README.md#data
+The photograph is subject to the Unsplash license, not relicensed as MIT:
+https://unsplash.com/license
+Unsplash grants an irrevocable, nonexclusive, worldwide copyright license to
+download, copy, modify, distribute, perform, and use images from Unsplash for
+free, including for commercial purposes, without permission from or attributing
+the photographer or Unsplash. This license does not include the right to compile
+images from Unsplash to replicate a similar or competing service. Images cannot
+be sold without significant modification. This sample uses one photograph to
+demonstrate image rendering, not as a stock-image collection.
+
+OpenSans-Regular.ttf (registered alias: OpenSansSample)
+Source: samples/DevFlow.Sample/Resources/Fonts/OpenSans-Regular.ttf
+Digitized data copyright 2010-2011, Google Corporation.
+The tracked font's embedded license identifies Apache License, Version 2.0.
+See Apache-2.0.txt. Open Sans project: https://www.opensans.com/
+The license of this bundled version, rather than a newer font release, applies.

@@ -1,11 +1,22 @@
+/**
+ * @file Layout-scheduler boundary tests for the production DOM bridge, bundled
+ * in memory by esbuild and run in isolated VMs. DOM, ResizeObserver, animation
+ * frames, FontFaceSet events, theme and input services are controlled doubles.
+ * Covers fractional viewport sizes, coalescing, zero-size deferral, font/managed
+ * invalidation and stale callbacks across unmount, release, stop and remount.
+ *
+ * Requires product npm dependencies only, not .NET, generated contracts or a
+ * browser. No site is produced. These tests verify scheduling and sizing messages,
+ * not browser geometry, real font loading or scrollbar feedback behavior.
+ *
+ * @see ../../CONTRIBUTING.md#testing-and-validation
+ */
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { runInNewContext } from 'node:vm';
 import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';
 
-// Execute the actual bridge in isolated VMs. These boundary doubles verify its
-// scheduling and sizing protocol, not browser geometry or scrollbar rendering.
 const source = fileURLToPath(new URL('../../src/Wasm.FluentUIWebComponents/web/bridge.ts', import.meta.url));
 const bundle = await build({
     entryPoints: [source], bundle: true, write: false, platform: 'node', format: 'cjs',
@@ -71,7 +82,7 @@ function harness(t) {
     }, { filename: source });
     const bridge = new module.exports.DomBrowserBridge(viewport, () => ({
         LayoutTick(width, height) { layouts.push([width, height]); },
-    }), message => errors.push(message));
+    }), message => errors.push(message), { resolve() { return undefined; } });
     t.after(() => { bridge.dispose(); assert.deepEqual(errors, []); });
     const mount = () => {
         const root = bridge.imports.create('div');

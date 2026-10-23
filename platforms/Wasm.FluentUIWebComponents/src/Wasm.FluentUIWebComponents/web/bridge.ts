@@ -2,6 +2,9 @@ import type { BrowserApplicationExports, BrowserBridge, BrowserImports, BrowserP
 import { BrowserTheme } from './theme.js';
 import { BrowserTextInput } from './input.js';
 import { createInputStyles } from './input.styles.js';
+import type { BrowserAssetCatalog } from './assets.js';
+import { BrowserImages } from './images.js';
+import { BrowserFonts } from './fonts.js';
 
 // DOM nodes and listeners stay JS-owned; MAUI computes container frames.
 export class DomBrowserBridge implements BrowserBridge {
@@ -12,6 +15,8 @@ export class DomBrowserBridge implements BrowserBridge {
     readonly #getApi: () => BrowserApplicationExports;
     readonly #onError: (message: string) => void;
     readonly #theme: BrowserTheme;
+    readonly #images: BrowserImages;
+    readonly #fonts: BrowserFonts;
     readonly #elements = new Map<number, HTMLElement>();
     readonly #clicks = new Map<number, EventListener>();
     readonly #scrolls = new Map<number, EventListener>();
@@ -33,10 +38,28 @@ export class DomBrowserBridge implements BrowserBridge {
         viewport: HTMLElement,
         getApi: () => BrowserApplicationExports,
         onError: (message: string) => void,
+        assets: BrowserAssetCatalog,
     ) {
         this.#viewport = viewport;
         this.#getApi = getApi;
         this.#onError = onError;
+        this.#images = new BrowserImages(
+            name => assets.resolve('images', name),
+            (id, request, success) => {
+                if (this.#stopped) {
+                    return;
+                }
+                try {
+                    this.#getApi().OnImageLoaded(id, request, success);
+                } catch (error) {
+                    this.#reportResource(String(error));
+                }
+            },
+            this.#reportResource,
+        );
+        this.#fonts = new BrowserFonts(
+            name => assets.resolve('fonts', name), this.#requestLayout, this.#reportResource,
+        );
         this.#theme = new BrowserTheme(viewport, theme => {
             this.#invoke(() => {
                 this.#getApi().OnSystemThemeChanged(theme);
@@ -46,6 +69,10 @@ export class DomBrowserBridge implements BrowserBridge {
         // Interop may invoke these as detached functions. Bind once, and expose
         // only the import contract rather than the class instance/prototype.
         this.imports = {
+            imageSource: (id, name, request) => this.#images.setSource(id, this.#get(id), name, request),
+            imageAspect: (id, aspect) => this.#images.setAspect(id, aspect),
+            fontFamily: filename => this.#fonts.getFamily(filename),
+            reportResource: this.#reportResource,
             startTicker: this.#startTicker.bind(this),
             stopTicker: this.#stopTicker.bind(this),
             subscribeInput: this.#subscribeInput.bind(this),
@@ -251,6 +278,8 @@ export class DomBrowserBridge implements BrowserBridge {
 
     #stop(): void {
         this.#stopped = true;
+        this.#images.dispose();
+        this.#fonts.dispose();
         this.#stopTicker();
         for (const input of this.#inputs.values()) {
             input.dispose();
@@ -270,6 +299,14 @@ export class DomBrowserBridge implements BrowserBridge {
     #report(message: string): void {
         this.#onError(message);
     }
+
+    readonly #reportResource = (message: string): void => {
+        if (this.#stopped) {
+            return;
+        }
+        console.warn(message);
+        this.#viewport.dispatchEvent(new CustomEvent<string>('maui-resource-error', { detail: message }));
+    };
 
     #create(tagName: string): number {
         if (this.#stopped) {
@@ -366,6 +403,7 @@ export class DomBrowserBridge implements BrowserBridge {
 
     #release(id: number): void {
         const element = this.#get(id);
+        this.#images.release(id);
         this.#inputs.get(id)?.dispose();
         this.#inputs.delete(id);
         this.#unmount(id);

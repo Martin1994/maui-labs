@@ -2,5 +2,8 @@
   <Project Path="tools/Wasm.FluentUIWebComponents.CodeGen/Wasm.FluentUIWebComponents.CodeGen.csproj" />
   <Project Path="src/Wasm.FluentUIWebComponents/Wasm.FluentUIWebComponents.csproj" />
   <Folder Name="/src/" />
+  <Folder Name="/tools/">
+    <Project Path="tools/Wasm.FluentUIWebComponents.Assets/Wasm.FluentUIWebComponents.Assets.csproj" />
+  </Folder>
   <Project Path="samples/BrowserSample/BrowserSample.csproj" />
 </Solution>

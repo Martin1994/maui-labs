@@ -108,38 +108,9 @@ edit or commit generated output.
 
 ## Tests
 
-From the product directory, after installing its existing npm dependencies:
-
-```sh
-npm run test:interop
-```
-
-`npm run test:interop` first builds only the CodeGen tool via `pretest:interop`,
-then runs independent restored C# fixture
-projects through `MSBuildWorkspace`. It does not clean or rebuild the backend.
-Tests cover conditional compilation, attribute aliases, parameter escaping,
-overloads, unions, rejection diagnostics, deterministic output, strict TS negative
-cases and the emitted resolver at runtime. TypeScript checks and JS emit use the
-compiler CLI, not its JS API.
-
-Run `npm run test:interop:build` separately for the heavier build regression.
-It cleans/rebuilds this backend in Debug and Release, compares their shared source
-contracts, checks configuration-local assets and unchanged contract mtime, and
-verifies design-time generation is skipped and clean retains npm dependencies.
-A cold source fixture has no `node_modules`, restore outputs or generated
-declarations: standard `dotnet build` must produce the complete backend.
-Do not run this clean/build test concurrently with other builds of the same configurations.
-
-Managed consumer fixtures exercise real `dotnet publish` with both a project
-reference and a locally packed/restored NuGet reference. Both must publish the
-same three assets exactly once without CodeGen/Roslyn/MSBuild dependencies.
-The copied frontend installs its own npm dependencies outside the checkout and
-tests preparation, TS compilation, byte-preserving site assembly, stale output
-removal and missing-input/collision failures. Native runtime files in that frontend
-fixture are explicitly mocked; these tests do not require a native LLVM compiler host.
-
-These commands test the interop generator and its build integration, not the
-backend's complete runtime or UI behavior; they are not a package-wide test suite.
-
-The managed publish fixtures and frontend tests do not establish a full standalone
-NativeAOT application publish or browser-runtime validation.
+See [Testing and validation](../../CONTRIBUTING.md#testing-and-validation) for
+coverage, prerequisites, command selection and the checks that require a real browser.
+The [interop suite](../../scripts/test/browser-interop.behaviour.test.mjs) tests this tool's
+contract generation; the [build suite](../../scripts/test/browser.build.test.mjs)
+tests its integration with backend builds and package consumers. Their file-level
+JSDoc describes the fixtures and execution details.

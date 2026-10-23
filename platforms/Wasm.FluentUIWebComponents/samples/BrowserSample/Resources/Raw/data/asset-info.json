@@ -1,0 +1,6 @@
+{
+  "sample": "BrowserSample",
+  "purpose": "Demonstrate MauiAsset raw file packaging without a runtime FileSystem API.",
+  "images": ["asset_shapes.png", "asset_shapes.svg", "sample_bot.png", "sample_popcorn.jpg"],
+  "fontAlias": "OpenSansSample"
+}

@@ -7,4 +7,5 @@
       <TargetPath>%(Filename)%(Extension)</TargetPath>
     </Content>
   </ItemGroup>
+  <Import Project="MauiBrowser.AppAssets.targets" Condition="'$(IsFluentWasmBackend)' != 'true'" />
 </Project>

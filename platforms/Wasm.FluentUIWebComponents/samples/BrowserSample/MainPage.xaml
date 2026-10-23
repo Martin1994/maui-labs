@@ -79,7 +79,7 @@
                            AutomationId="counter-label" />
                     <HorizontalStackLayout Spacing="12">
                         <!-- Leave colors unset so Fluent's neutral rest/hover/pressed tokens apply. -->
-                        <Button Text="Increment" Clicked="OnIncrementClicked"
+                        <Button Text="Increment" Clicked="OnIncrementClicked" FontFamily="OpenSansSample"
                                 AutomationId="increment-button" />
                         <Button Text="Reset" Clicked="OnResetClicked" AutomationId="reset-button" />
                     </HorizontalStackLayout>
@@ -93,7 +93,9 @@
                     <Label Text="Text input. Native interaction." FontSize="22" FontAttributes="Bold" />
                     <Label Text="A Fluent input sends text, focus and selection changes to ordinary MAUI events. The buttons below update it from C#."
                            FontSize="14" TextColor="{DynamicResource Fluent.MutedColor}" />
-                    <Entry x:Name="DemoEntry" Placeholder="Type here — including 中文"
+                          <Label Text="This Entry uses Open Sans, loaded from the packaged OpenSans-Regular.ttf font."
+                              FontSize="14" TextColor="{DynamicResource Fluent.MutedColor}" />
+                    <Entry x:Name="DemoEntry" Placeholder="Type here — including 中文" FontFamily="OpenSans-Regular.ttf"
                            MaxLength="80" IsSpellCheckEnabled="False" ReturnType="Done" SemanticProperties.Description="Text interaction example"
                            TextChanged="OnEntryTextChanged" Completed="OnEntryCompleted"
                            Focused="OnEntryFocusChanged" Unfocused="OnEntryFocusChanged"
@@ -107,6 +109,36 @@
                         <Button Text="Select" Clicked="OnSelectInputClicked" AutomationId="input-select" />
                         <Button Text="Clear" Clicked="OnClearInputClicked" AutomationId="input-clear" />
                     </HorizontalStackLayout>
+                </VerticalStackLayout>
+            </Border>
+
+            <Border Padding="24" StrokeShape="RoundRectangle 16">
+                <VerticalStackLayout Spacing="12">
+                    <Label Text="Packaged assets. Standard MAUI declarations." FontSize="22" FontAttributes="Bold" />
+                    <Label Text="Open Sans via AddFont: this Label and Increment use the alias; the text input uses the registered filename."
+                           FontFamily="OpenSansSample" AutomationId="asset-font-label" />
+                          <Label Text="Images keep their original bytes. Both SVG frames are 160 by 160: AspectFit leaves space around a circle; Fill stretches it into an ellipse. PNG and JPEG frames are 160 by 100."
+                           FontSize="14" TextColor="{DynamicResource Fluent.MutedColor}" />
+                    <Label Text="SVG (.png alias) / AspectFit" FontSize="14" />
+                          <Image Source="asset_shapes.png" WidthRequest="160" HeightRequest="160" Aspect="AspectFit"
+                              BackgroundColor="#CBD5E1"
+                           HorizontalOptions="Start" AutomationId="asset-svg-png"
+                              SemanticProperties.Description="Colored geometric shapes with a round circle and gray space above and below" />
+                    <Label Text="SVG (.svg name) / Fill" FontSize="14" />
+                          <Image Source="asset_shapes.svg" WidthRequest="160" HeightRequest="160" Aspect="Fill"
+                              BackgroundColor="#CBD5E1"
+                           HorizontalOptions="Start" AutomationId="asset-svg-direct"
+                              SemanticProperties.Description="The same colored shapes stretched to fill the square, with a tall ellipse instead of a circle" />
+                    <Label Text="PNG / Center" FontSize="14" />
+                    <Image Source="sample_bot.png" WidthRequest="160" HeightRequest="100" Aspect="Center"
+                           HorizontalOptions="Start" AutomationId="asset-png"
+                           SemanticProperties.Description="The .NET bot, centered and cropped without scaling" />
+                    <Label Text="JPEG / AspectFill" FontSize="14" />
+                    <Image Source="sample_popcorn.jpg" WidthRequest="160" HeightRequest="100" Aspect="AspectFill"
+                           HorizontalOptions="Start" AutomationId="asset-jpeg"
+                           SemanticProperties.Description="A bowl of popcorn, scaled and cropped to fill the frame" />
+                    <Label Text="Raw packaging: data/asset-info.json is included in the output, not read by this app. Browser FileSystem APIs are not implemented."
+                           FontSize="14" AutomationId="asset-raw-note" TextColor="{DynamicResource Fluent.MutedColor}" />
                 </VerticalStackLayout>
             </Border>
 

@@ -1,3 +1,17 @@
+/**
+ * @file Contract-generator integration tests using real CodeGen, MSBuildWorkspace
+ * and the TypeScript CLI. Covers conditional compilation, attribute aliases,
+ * parameter escaping, unions/overloads, rejection diagnostics, deterministic
+ * output/mtime, strict TypeScript positive/negative cases and the emitted resolver.
+ *
+ * Fixtures are independent restored SDK projects, not backend source or DLLs.
+ * Requires product npm dependencies, .NET 10 and a built Release CodeGen tool;
+ * npm run test:interop builds that tool in its pretest hook. A direct invocation
+ * does not. Each fixture can restore packages and is removed from artifacts afterward.
+ * This suite does not clean/build the backend or execute NativeAOT/browser code.
+ *
+ * @see ../../CONTRIBUTING.md#testing-and-validation
+ */
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs';
@@ -6,8 +20,6 @@ import { before, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { runTypeScript } from '../typescript-cli.mjs';
 
-// Run with node --test scripts/test/browser-interop.test.mjs after building the generator.
-// Fixtures are independent SDK projects; no backend sources or binaries are inputs.
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const generator = join(root, 'tools/Wasm.FluentUIWebComponents.CodeGen/bin/Release/net10.0/Wasm.FluentUIWebComponents.CodeGen.dll');
 

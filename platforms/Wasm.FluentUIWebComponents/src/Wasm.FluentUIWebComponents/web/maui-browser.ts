@@ -3,6 +3,7 @@ import type { BrowserApplicationExports, BrowserBridge } from './contracts.js';
 import { BrowserModuleName, BrowserApplicationAssemblyName, resolveBrowserExports } from './contracts.js';
 import { DomBrowserBridge } from './bridge.js';
 import { initializeFluent } from './fluent.js';
+import { loadBrowserAssets } from './assets.js';
 
 /** Owns a running browser application. Repeated disposal is harmless. */
 export interface MauiApplicationHandle {
@@ -59,7 +60,10 @@ export async function startMaui(
         if (!element) {
             throw new Error('MAUI app element was not found');
         }
-        bridge = new DomBrowserBridge(element, getApi, onError);
+        // The catalog is required even for an empty app, and must be available
+        // before managed constructors or ConfigureFonts registrations execute.
+        const assets = await loadBrowserAssets(mainAssembly, import.meta.url);
+        bridge = new DomBrowserBridge(element, getApi, onError, assets);
         await initializeFluent();
         const runtime = await dotnet.withMainAssembly(mainAssembly).create();
         runtime.setModuleImports(BrowserModuleName, bridge.imports);

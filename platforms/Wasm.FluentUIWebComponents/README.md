@@ -17,7 +17,9 @@ There are **no released packages currently**. External consumption uses an exper
 
 `MauiFluentBackendVersion` is an application-defined MSBuild property: set it to the exact experimental/local package version available from your feed. It is not a published-version claim or a property supplied by the backend. This reference does not by itself configure a complete NativeAOT LLVM application.
 
-The `.nupkg` contains `buildTransitive/Microsoft.Maui.Platforms.Wasm.FluentUIWebComponents.targets`. NuGet restore automatically imports it to register the three browser assets as `Content` copied to application output and publish directories. A source `ProjectReference` supplies the same filenames through the backend's normal `Content` items. Neither reference type needs a manual backend `<Import>`; remove one if migrating from an older setup. Do not use NuGet-cache paths or edit generated imports. This is standard NuGet [MSBuild `build`/`buildTransitive` integration](https://learn.microsoft.com/en-us/nuget/concepts/msbuild-props-and-targets).
+The `.nupkg` contains `buildTransitive/Microsoft.Maui.Platforms.Wasm.FluentUIWebComponents.targets`. NuGet restore automatically imports it to register the three browser bridge files as `Content` and import the app asset rules. These rules copy declared MAUI resources and generate `maui-assets.json` for application output and publish directories. This is standard NuGet [MSBuild `build`/`buildTransitive` integration](https://learn.microsoft.com/en-us/nuget/concepts/msbuild-props-and-targets).
+
+Inside this product directory, a source `ProjectReference` supplies the bridge files through normal `Content` items, while the product's `Directory.Build.targets` imports the app asset rules. No sample-local backend `<Import>` is needed. **A `ProjectReference` outside this product does not import those rules automatically**; use the experimental/local NuGet package for external applications. Do not use NuGet-cache paths or edit generated imports.
 
 The [BrowserSample README](samples/BrowserSample/README.md) covers application features, publishing and static deployment, and explains its current checkout-dependent C# project. Backend source builds and repository setup belong in [CONTRIBUTING.md](CONTRIBUTING.md).
 
@@ -53,6 +55,7 @@ Reuse a matching Fluent component first. Custom elements are reserved for behavi
 | Direct Fluent mapping | Label | `fluent-text` | Text, wrapping, font and horizontal alignment |
 | Direct Fluent mapping | Button | `fluent-button` | Click, text, enabled state, color and padding |
 | Direct Fluent mapping | Entry | `fluent-text-input` | Text, focus, selection, input state, placeholder and keyboard hints |
+| Direct Fluent mapping | Image | `fluent-image` with an owned `img` | Packaged static files, explicit width and height, four MAUI Aspects |
 | Custom MAUI component | ScrollView | `maui-scroll-view` | Vertical viewport, offsets and scroll notifications |
 | Standard DOM container | ContentPage, Grid and stacks | `div` | Content ownership and MAUI layout |
 | Standard DOM container | Border | `div` | Solid rectangular/rounded stroke and content padding |
@@ -93,17 +96,115 @@ The NuGet package supplies three assets to the application output and publish di
 - `maui-browser.d.ts`: `startMaui` and the returned `MauiApplicationHandle`.
 - `dotnet.d.ts`: the original declaration from the matching LLVM runtime package.
 
-The application's **publish directory is the frontend's input**, for both package and source references. Frontend tooling must not look into backend intermediate directories or the NuGet cache. The package targets only supply `Content`; they do not prepare application source files, compile application TypeScript or assemble a website.
+The application's **publish directory is the frontend's input**, for both package and in-product source references. It also contains the generated `maui-assets.json` and declared resources under `maui-assets/`, as described below. Frontend tooling must not look into backend intermediate directories or the NuGet cache. The package targets generate/register app resources as well as supply bridge `Content`; they do not prepare application source files, compile application TypeScript or assemble a website.
 
 The sample's npm pipeline publishes the MAUI module to `artifacts/maui`, then copies these three files beside its handwritten `web/` TypeScript for editor and compiler imports. These local copies are gitignored and should not be edited. TypeScript emits to `artifacts/typescript`; site assembly combines that output, handwritten `wwwroot/` assets and the entire MAUI publish directory into `artifacts/wwwroot`. The same frontend pipeline works with either reference type. See the [sample build instructions](samples/BrowserSample/README.md#build-and-run).
 
-Standard `dotnet publish` produces the MAUI module's Wasm, runtime glue, backend JS and declarations, plus symbols/metadata when emitted by the toolchain—not a complete website. It does not call the sample's npm scripts. Building a source-referenced backend still intentionally runs its own npm bundle build. Ordinary `dotnet build` compiles managed code and backend resources; it does not perform the native Wasm publish.
+Standard `dotnet publish` produces the MAUI module's Wasm, runtime glue, backend JS and declarations, app resource catalog/files, plus symbols/metadata when emitted by the toolchain—not a complete website. It does not call the sample's npm scripts. Building a source-referenced backend still intentionally runs its own npm bundle build. Ordinary `dotnet build` compiles managed code and backend resources and copies app resources/catalog to build output; it does not perform the native Wasm publish.
 
 The application imports its own runtime's `dotnet.js` and passes its builder to `startMaui`. The runtime JS exports live in the backend assembly; consuming applications must include that assembly in `UnmanagedEntryPointsAssembly` to preserve the exports. Use the runtime assets supplied by the configured LLVM toolchain, not SDK/Blazor replacements.
 
 The browser interop contract is generated from the backend's C# declarations when the backend is built. The resulting browser bundle and public type declarations are packaged together; package consumers do not need to configure or run backend code generation. Frontend-owned preparation makes the published declarations available beside application sources to type-check bootstrap code. Private implementation declarations are not distributed.
 
 Code generation is provided by [Wasm.FluentUIWebComponents.CodeGen](tools/Wasm.FluentUIWebComponents.CodeGen/README.md); its README contains implementation and testing details. Runtime declarations may describe APIs beyond the subset supported by NativeAOT LLVM; their presence alone does not guarantee runtime support.
+
+## Packaged application resources
+
+Use ordinary **app-head** `MauiImage`, `MauiFont` and `MauiAsset` items. Files are
+copied unchanged, not embedded in Wasm or processed by Resizetizer. The backend
+consumes items declared by the app; it does not add implicit `Resources` globs or
+recursively collect assets from referenced projects, assemblies or NuGet libraries.
+Explicit linked files declared in the app head are supported.
+
+| Item | Supported files | Consumption |
+| --- | --- | --- |
+| `MauiImage` | Static PNG, JPG/JPEG, SVG | `Image.Source` file logical name; **both** `WidthRequest` and `HeightRequest` required |
+| `MauiFont` | TTF, OTF | `ConfigureFonts` / `AddFont`, then `FontFamily` alias or registered filename on Label, Button and Entry |
+| `MauiAsset` | Raw files, unchanged | Packing only; no browser `FileSystem` implementation or `OpenAppPackageFileAsync` support |
+
+[BrowserSample.csproj](samples/BrowserSample/BrowserSample.csproj) shows local and
+linked declarations; [MauiProgram.cs](samples/BrowserSample/MauiProgram.cs) registers
+Open Sans. The sample uses no resource URLs, manual resource copies into `wwwroot`,
+or application `@font-face` CSS.
+
+### Logical names and metadata
+
+- Image and font names are **flat filenames**: the final component of `Link` when
+    supplied, otherwise the source filename. For example, an app item linking
+    `../Shared/photo.jpg` as `Resources/Images/cover.jpg` is used as `cover.jpg`.
+    `Link` may rename a file but cannot change its format/extension.
+- An SVG named `asset_shapes.svg` has **two** image logical names:
+    `asset_shapes.svg` and `asset_shapes.png`. Both resolve to the same unchanged
+    `.svg` file. There is no generated PNG and no runtime extension guessing.
+- `MauiFont` registers the file in the catalog; `AddFont("OpenSans-Regular.ttf",
+    "OpenSansSample")` registers its application alias at runtime. An item metadata
+    alias is not a replacement for `AddFont`.
+- Raw names preserve subdirectories. `Link` takes precedence over `LogicalName`;
+    without either, the item path is used (absolute paths are reduced to a
+    project-relative path where possible, otherwise the filename). To remove
+    `Resources/Raw/`, use the usual `MauiAsset` glob with
+    `LogicalName="%(RecursiveDir)%(Filename)%(Extension)"`. `LogicalName` does not
+    rename images or fonts.
+- Lookup is case-sensitive; case-only collisions are rejected at build time.
+    Image/font/raw namespaces are separate. Duplicate names, SVG alias collisions
+    with real PNGs, unsafe paths and output file/directory conflicts fail the build.
+    For example, do not declare both `logo.svg` and `logo.png` in the same app.
+- `BaseSize`, `TintColor`, `Color`, `ForegroundFile`, `ForegroundScale` and explicit
+    `Resize=true` are unsupported and
+    produce build diagnostics. Omit transformation metadata or use `Resize=false`.
+    There is no resize, recoloring, compositing, density generation or conversion.
+
+### Image and font limits
+
+Images support `AspectFit`, `AspectFill`, `Fill` and `Center` inside the MAUI frame.
+`AspectFit` contains the image, `AspectFill` covers and crops, `Fill` stretches, and
+`Center` centers without scaling and clips to the frame. Both requested dimensions
+must be explicit; there is no intrinsic sizing or single-dimension inference.
+MAUI still applies parent constraints and owns measure/arrange.
+
+Only static packaged file sources are supported: no `UriImageSource`,
+`StreamImageSource`, `FontImageSource`, animated GIF/APNG or `IsAnimationPlaying`,
+ImageButton, Button image source, image transforms or Resizetizer processing.
+SVGs are decoded by the browser, not rasterized by MAUI; native pixel equivalence
+is not promised. Use trusted, self-contained SVGs; the catalog is not a sanitizer
+and does not package external SVG dependencies.
+
+Registered fonts load on first use, initially using a fallback. Completion requests
+layout again so labels, buttons and entries can be remeasured. A failed font keeps
+the fallback without an automatic retry loop. Fonts are not subsetted or converted
+to webfont formats; assembly-embedded font discovery is not supported.
+Explicit embedded-font registration reports a nonfatal unsupported-resource
+diagnostic and leaves the fallback; it does not register a packaged-file alias.
+
+### Catalog, deployment and failures
+
+Build/publish automatically generate a versioned `maui-assets.json`, **even for an
+app with no resources**. It records the application assembly name and logical-name
+maps into `maui-assets/images/`, `maui-assets/fonts/` and `maui-assets/raw/`.
+The pipeline tracks its outputs so removed/renamed resources do not remain in its
+previous build/publish destinations; unrelated host files must not be overwritten.
+
+`startMaui` loads and validates this mandatory catalog **before managed Main**.
+The catalog and resource URLs are relative to the deployed `maui-browser.js`
+module directory, not the current page route or site root. Preserve their relative
+paths when deploying under a subdirectory. Do not hand-edit the catalog or infer
+URLs from `Image.Source`.
+
+Missing/malformed catalogs, unsupported schema versions, application mismatches
+and SPA fallbacks returning HTML are startup/deployment failures, not an empty
+resource set. A missing image/font entry, network failure or decode failure is
+instead **nonfatal**: the mount emits `maui-resource-error` with a string diagnostic
+in `event.detail`, and the backend logs it. Image failures clear the broken image;
+font failures retain fallback text. They do not use the fatal `maui-error` channel
+or stop otherwise working controls. Unknown logical names never fetch guessed URLs.
+
+Deploy the managed/Wasm application, runtime glue, backend JS, catalog and resource
+files **in lockstep from one publish**. Catalog schema checks do not prove that
+every file belongs to that publish; filenames are not content-hashed. Replace a
+deployment as a unit and invalidate caches together, including `maui-assets.json`.
+Existing sites upgrading the bridge must also publish the catalog, even if empty.
+
+## Browser integration details
 
 ### Web Component contract
 

@@ -1,3 +1,24 @@
+/**
+ * @file Backend build/distribution integration tests using real dotnet, npm and
+ * TypeScript CLI processes. Cleans and rebuilds the checkout backend in Debug and
+ * Release; checks shared contract equality/mtime, configuration-local outputs,
+ * design-time skips and clean retaining npm dependencies. A separate cold source
+ * fixture starts without node_modules, restore outputs or generated declarations.
+ *
+ * Source and locally packed/restored NuGet consumers perform real managed SDK
+ * publish. Tests check canonical bridge files occur once and host tools do not leak.
+ * An isolated frontend installs its own npm dependencies and exercises preparation,
+ * TS emit, byte-preserving site assembly, stale removal and missing/colliding inputs.
+ * Its native/runtime files are explicit mocks, not executable NativeAOT evidence.
+ *
+ * Requires .NET 10, Node/npm and configured feeds or complete dependency caches;
+ * no Emscripten/browser is needed. Temporary fixtures are deleted, but checkout
+ * Release outputs/shared generated files remain and Debug is cleaned again.
+ * Do not overlap with other backend/tool builds or sample publishes, even across
+ * configurations. The aggregate command serializes this suite with asset builds.
+ *
+ * @see ../../CONTRIBUTING.md#testing-and-validation
+ */
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
@@ -16,7 +37,7 @@ const assetNames = ['maui-browser.js', 'maui-browser.d.ts', 'dotnet.d.ts'];
 const nativeNames = ['dotnet.native.wasm', 'dotnet.native.js', 'dotnet.js'];
 const appScripts = ['main.js', 'sample-diagnostics.js'];
 const consumerTargets = join(backend, 'buildTransitive/Microsoft.Maui.Platforms.Wasm.FluentUIWebComponents.targets');
-const toolLeakage = /Wasm\.FluentUIWebComponents\.CodeGen|Microsoft\.CodeAnalysis|Microsoft\.Build|BuildHost/u;
+const toolLeakage = /Wasm\.FluentUIWebComponents\.(?:CodeGen|Assets)|Microsoft\.CodeAnalysis|Microsoft\.Build|BuildHost/u;
 
 async function command(executable, args, cwd = root) {
     return await new Promise((resolveResult, reject) => {
@@ -122,20 +143,22 @@ function createConsumer(parent, name, { reference, properties = '' }) {
     const appSource = 'export const fixture = "App-owned JavaScript must not be rewritten";\n';
     write(join(directory, 'web source/main.js'), appSource);
     write(join(directory, 'metadata/nested/info.json'), '{"fixture":"publish content"}\n');
-    write(join(directory, 'Fixture.cs'), 'public sealed class Fixture\n{\n}\n');
+    write(join(directory, 'Fixture.cs'), 'public static class Fixture\n{\n    public static void Main()\n    {\n    }\n}\n');
     // LLVM is private to the backend. This consumer has no compiler package and is
-    // deliberately a non-native class library: the ordinary SDK Publish pipeline
+    // deliberately a managed-only app head: the ordinary SDK Publish pipeline
     // must collect and COPY Content, not merely return a simulated publish list.
     // These are local properties, not global overrides of the backend build.
     write(consumerProject, `<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <OutputType>Library</OutputType>
+    <OutputType>Exe</OutputType>
+    <RuntimeIdentifier></RuntimeIdentifier>
+    <MauiBrowserEnableAppAssets>true</MauiBrowserEnableAppAssets>
     <PublishAot>false</PublishAot>
     <PublishTrimmed>false</PublishTrimmed>
     <SelfContained>false</SelfContained>
     <UseAppHost>false</UseAppHost>
     <DotNetJsApi>false</DotNetJsApi>
-    <!-- This browser-wasm fixture tests Content publishing, not SDK wasm-tools. -->
+    <!-- This managed-only fixture tests Content publishing, not SDK wasm-tools. -->
     <MSBuildEnableWorkloadResolver>false</MSBuildEnableWorkloadResolver>
     <PublishDir>$(MSBuildProjectDirectory)/published/</PublishDir>
     <DefaultItemExcludes>$(DefaultItemExcludes);published/**</DefaultItemExcludes>
@@ -185,6 +208,9 @@ async function exerciseConsumer(consumer, canonicalDirectory) {
             assert.ok(!existsSync(join(consumer.directory, 'web source', name)), 'No consumer-side mirror is needed');
         }
         assertAssets(consumer.published, canonicalDirectory);
+        assert.deepEqual(JSON.parse(readFileSync(join(consumer.published, 'maui-assets.json'), 'utf8')),
+            { version: 1, application: 'Consumer', images: {}, fonts: {}, raw: {} },
+            'Managed-only app heads explicitly opt in to the mandatory empty catalog');
         const output = resolve(consumer.directory, collected.Properties.TargetDir);
         assertAssets(output, canonicalDirectory);
         assert.ok(existsSync(join(consumer.published, 'Consumer.dll')), 'Publish must really copy the managed fixture');
@@ -218,6 +244,7 @@ async function exerciseFrontend(t, publishedBackend) {
     for (const name of assetNames) {
         write(join(published, name), readFileSync(join(publishedBackend, name)));
     }
+    write(join(published, 'maui-assets.json'), readFileSync(join(publishedBackend, 'maui-assets.json')));
     // EXPLICIT MOCK native/runtime files: only site assembly is tested here.
     // These bytes are not executable and do not validate NativeAOT or browser startup.
     for (const name of nativeNames) {
@@ -394,12 +421,12 @@ test('clean builds, configuration isolation, incremental contract and real manag
     await run(['clean', project, '-c', 'Release', '--nologo']);
     await run(['clean', project, '-c', 'Debug', '--nologo']);
     await run(['restore', project, '-property:RestoreLockedMode=true', '--nologo']);
-    // Bootstrap dependencies once before parallel configurations; simultaneous cold
-    // npm ci calls are not a supported fixture and would race on shared node_modules.
+    // Bootstrap dependencies once, and serialize builds to avoid shared tool locks
+    // and simultaneous cold npm ci calls racing on node_modules.
     await run(['msbuild', project, '-target:RestoreBrowserDependencies', '-nologo']);
-    await Promise.all(['Debug', 'Release'].map(configuration => {
-        return run(['build', project, '-c', configuration, '--no-restore', '--nologo']);
-    }));
+    for (const configuration of ['Debug', 'Release']) {
+        await run(['build', project, '-c', configuration, '--no-restore', '--nologo']);
+    }
     for (const path of [release, debug]) {
         for (const name of assetNames) {
             assert.ok(existsSync(join(path, 'wwwroot', name)), `Missing ${path}/${name}`);
@@ -582,10 +609,13 @@ test('sample MSBuild only publishes MAUI; npm owns preparation, TypeScript and s
     assert.doesNotMatch(evaluated, /<Target\s+Name="(?:BuildBrowserBootstrap|PrepareMauiBrowserAssets|GetMauiBrowserAssets|BuildBrowserAssets|RestoreBrowserDependencies)"/u);
     assert.doesNotMatch(evaluated, /<Exec\b[^>]*Command="[^"\n]*npm\b/u);
     assert.doesNotMatch(evaluated, /buildTransitive[/\\]Microsoft\.Maui\.Platforms\.Wasm\.FluentUIWebComponents\.targets/u,
-        'The source sample must not import package/source resource targets');
+        'The source sample must not import package bridge Content a second time');
+    assert.match(evaluated, /<Target\s+Name="GenerateMauiBrowserAppAssets"/u,
+        'The product build entry must import app-head asset processing for source consumers');
     const packaged = readFileSync(consumerTargets, 'utf8');
     assert.doesNotMatch(packaged, /<Target\b|<Exec\b|Remove=|MauiBrowserAssetsDirectory/u,
-        'Package assets must be plain Content, not a second preparation/filter pipeline');
+        'Package bridge assets remain plain Content, with no frontend preparation pipeline');
+    assert.match(packaged, /<Import Project="MauiBrowser\.AppAssets\.targets"/u);
     const manifest = JSON.parse(readFileSync(join(sample, 'package.json'), 'utf8'));
     assert.equal(manifest.scripts.build, 'npm run build:maui-app && npm run build:ts && npm run build:site');
     assert.equal(manifest.scripts['build:maui-app'], 'dotnet publish BrowserSample.csproj');

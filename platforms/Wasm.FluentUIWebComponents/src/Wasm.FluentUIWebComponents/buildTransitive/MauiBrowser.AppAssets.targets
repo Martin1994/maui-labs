@@ -1,0 +1,97 @@
+<Project>
+  <PropertyGroup>
+    <!-- An explicit opt-in is available for managed-only app-head build verification.
+         It never enables asset processing in libraries or design-time builds. -->
+    <MauiBrowserEnableAppAssets Condition="'$(MauiBrowserEnableAppAssets)' == '' and '$(RuntimeIdentifier)' == 'browser-wasm'">true</MauiBrowserEnableAppAssets>
+    <_MauiBrowserAppAssetsEnabled Condition="'$(MauiBrowserEnableAppAssets)' == 'true' and '$(OutputType)' == 'Exe' and '$(DesignTimeBuild)' != 'true'">true</_MauiBrowserAppAssetsEnabled>
+        <!-- UsingTask binds its assembly path during evaluation. Source builds stage the
+          queried tool output at an app-owned location known before targets execute.
+          TFM/RID here isolate the app's cache; they do not select the tool's TFM. -->
+        <_MauiBrowserAssetTaskAssembly Condition="'$(_MauiBrowserAssetTaskProject)' != ''">$([System.IO.Path]::GetFullPath('$(BaseIntermediateOutputPath)maui-browser-task/$(Configuration)/$(TargetFramework)/$(RuntimeIdentifier)/Wasm.FluentUIWebComponents.Assets.dll', '$(MSBuildProjectDirectory)'))</_MauiBrowserAssetTaskAssembly>
+    <_MauiBrowserAssetTaskAssembly Condition="'$(_MauiBrowserAssetTaskProject)' == ''">$(MSBuildThisFileDirectory)../tools/net10.0/Wasm.FluentUIWebComponents.Assets.dll</_MauiBrowserAssetTaskAssembly>
+        <_MauiBrowserAssetTaskGlobalPropertiesToRemove>TargetFramework;TargetFrameworks;RuntimeIdentifier;RuntimeIdentifiers;SelfContained;PublishAot;PublishTrimmed;OutputType;BaseOutputPath;OutputPath;OutDir;BaseIntermediateOutputPath;IntermediateOutputPath;MSBuildProjectExtensionsPath;ProjectAssetsFile;PublishDir;AssemblyName;TargetName;MauiBrowserEnableAppAssets</_MauiBrowserAssetTaskGlobalPropertiesToRemove>
+  </PropertyGroup>
+  <UsingTask TaskName="MauiBrowser.Build.GenerateAssetCatalog" AssemblyFile="$(_MauiBrowserAssetTaskAssembly)" />
+  <UsingTask TaskName="MauiBrowser.Build.AssetOwnership" AssemblyFile="$(_MauiBrowserAssetTaskAssembly)" />
+
+  <Target Name="_BuildMauiBrowserAssetTask" Condition="'$(_MauiBrowserAssetTaskProject)' != ''">
+    <!-- Remove browser globals; the tool project owns its framework and host defaults. -->
+    <MSBuild Projects="$(_MauiBrowserAssetTaskProject)" Targets="Restore;Build"
+             RemoveProperties="$(_MauiBrowserAssetTaskGlobalPropertiesToRemove)"
+             Properties="Configuration=$(Configuration);RestoreLockedMode=false" />
+    <MSBuild Projects="$(_MauiBrowserAssetTaskProject)" Targets="GetTargetPath"
+             RemoveProperties="$(_MauiBrowserAssetTaskGlobalPropertiesToRemove)"
+             Properties="Configuration=$(Configuration);RestoreLockedMode=false">
+      <Output TaskParameter="TargetOutputs" ItemName="_MauiBrowserAssetTaskOutput" />
+    </MSBuild>
+    <Error Condition="'@(_MauiBrowserAssetTaskOutput)' == ''"
+           Text="Could not resolve the browser asset task output from $(_MauiBrowserAssetTaskProject)." />
+    <Error Condition="!Exists('%(_MauiBrowserAssetTaskOutput.Identity)')"
+           Text="Browser asset task output is missing: %(_MauiBrowserAssetTaskOutput.Identity)." />
+    <Copy SourceFiles="@(_MauiBrowserAssetTaskOutput)" DestinationFiles="$(_MauiBrowserAssetTaskAssembly)"
+          SkipUnchangedFiles="true" />
+    <ItemGroup>
+      <FileWrites Include="$(_MauiBrowserAssetTaskAssembly)" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="_MauiBrowserAssetPaths" Condition="'$(_MauiBrowserAppAssetsEnabled)' == 'true'">
+    <PropertyGroup>
+      <!-- Evaluated in a target, after the SDK finalizes configuration/TFM/RID paths. -->
+      <_MauiBrowserAssetState>$(IntermediateOutputPath)maui-browser-assets/</_MauiBrowserAssetState>
+      <!-- Catalogs stay configuration-local; ownership must survive a shared PublishDir
+         handover. The task adds a project identity key and records configuration/TFM/RID. -->
+      <_MauiBrowserAssetOwnershipState>$(BaseIntermediateOutputPath)maui-browser-assets/</_MauiBrowserAssetOwnershipState>
+    </PropertyGroup>
+  </Target>
+
+  <Target Name="GenerateMauiBrowserAppAssets" BeforeTargets="AssignTargetPaths;GetCopyToOutputDirectoryItems;ComputeFilesToPublish"
+          DependsOnTargets="_MauiBrowserAssetPaths;_BuildMauiBrowserAssetTask"
+          Condition="'$(_MauiBrowserAppAssetsEnabled)' == 'true'">
+    <GenerateAssetCatalog Images="@(MauiImage)" Fonts="@(MauiFont)" Raw="@(MauiAsset)"
+                          ProjectDirectory="$(MSBuildProjectDirectory)" Application="$(AssemblyName)"
+                          StateDirectory="$(_MauiBrowserAssetState)">
+      <Output TaskParameter="Assets" ItemName="_MauiBrowserAppAsset" />
+      <Output TaskParameter="CatalogFile" ItemName="FileWrites" />
+    </GenerateAssetCatalog>
+    <ItemGroup>
+      <!-- Never glob intermediate files: removed resources must not re-enter the SDK graph. -->
+      <Content Include="@(_MauiBrowserAppAsset)" CopyToOutputDirectory="Always" CopyToPublishDirectory="Always" />
+    </ItemGroup>
+    <!-- Reconcile every previously used destination, including custom publish directories. -->
+    <AssetOwnership StateDirectory="$(_MauiBrowserAssetOwnershipState)" Assets="@(_MauiBrowserAppAsset)"
+            ProjectFullPath="$(MSBuildProjectFullPath)" Configuration="$(Configuration)"
+            TargetFramework="$(TargetFramework)" RuntimeIdentifier="$(RuntimeIdentifier)" />
+  </Target>
+
+  <Target Name="_MauiBrowserOwnBuildAssets"
+          BeforeTargets="_CopyOutOfDateSourceItemsToOutputDirectory;_CopyOutOfDateSourceItemsToOutputDirectoryAlways;_CopyOutOfDateSourceItemsToOutputDirectoryIfDifferent"
+          DependsOnTargets="GenerateMauiBrowserAppAssets" Condition="'$(_MauiBrowserAppAssetsEnabled)' == 'true'">
+    <AssetOwnership StateDirectory="$(_MauiBrowserAssetOwnershipState)" Assets="@(_MauiBrowserAppAsset)" Destination="$(TargetDir)"
+            ProjectFullPath="$(MSBuildProjectFullPath)" Configuration="$(Configuration)"
+            TargetFramework="$(TargetFramework)" RuntimeIdentifier="$(RuntimeIdentifier)"
+            OtherItems="@(AllItemsFullPathWithTargetPath)" OtherItemPathMetadata="TargetPath" />
+  </Target>
+
+  <Target Name="_MauiBrowserOwnPublishAssets" BeforeTargets="_CopyResolvedFilesToPublishPreserveNewest;_CopyResolvedFilesToPublishAlways;_CopyResolvedFilesToPublishIfDifferent"
+          DependsOnTargets="GenerateMauiBrowserAppAssets" Condition="'$(_MauiBrowserAppAssetsEnabled)' == 'true'">
+    <AssetOwnership StateDirectory="$(_MauiBrowserAssetOwnershipState)" Assets="@(_MauiBrowserAppAsset)" Destination="$(PublishDir)"
+            ProjectFullPath="$(MSBuildProjectFullPath)" Configuration="$(Configuration)"
+            TargetFramework="$(TargetFramework)" RuntimeIdentifier="$(RuntimeIdentifier)"
+            OtherItems="@(ResolvedFileToPublish)" OtherItemPathMetadata="RelativePath" />
+  </Target>
+
+  <!-- Run before CoreClean deletes FileWrites. Ownership journals deliberately survive
+       normal SDK incremental cleanup so custom publish paths remain discoverable. -->
+  <Target Name="CleanMauiBrowserAppAssets" BeforeTargets="CoreClean"
+          DependsOnTargets="_MauiBrowserAssetPaths;_BuildMauiBrowserAssetTask"
+          Condition="'$(_MauiBrowserAppAssetsEnabled)' == 'true'">
+    <AssetOwnership StateDirectory="$(_MauiBrowserAssetOwnershipState)" Clean="true"
+                    CatalogFile="$(_MauiBrowserAssetState)maui-assets.json"
+            ProjectFullPath="$(MSBuildProjectFullPath)" Configuration="$(Configuration)"
+            TargetFramework="$(TargetFramework)" RuntimeIdentifier="$(RuntimeIdentifier)" />
+    <Delete Files="$(_MauiBrowserAssetState)maui-assets.json" />
+    <!-- The evaluation-time stage is outside the SDK's final IntermediateOutputPath. -->
+    <Delete Files="$(_MauiBrowserAssetTaskAssembly)" Condition="'$(_MauiBrowserAssetTaskProject)' != ''" />
+  </Target>
+</Project>

@@ -8,6 +8,8 @@ An experimental .NET MAUI XAML application using the [Fluent UI Web Components b
 - `App.xaml` resources and styles, a responsive Grid, rounded borders and vertical scrolling.
 - Standard `Clicked` code-behind events: Increment and Reset update a named Label.
 - Text input with MAUI text/focus/selection/Completed events from a real Fluent input.
+- Standard app-head `MauiImage`, `MauiFont` and `MauiAsset` declarations: unchanged
+	images, registered Open Sans, and Raw packing without a runtime file API.
 - Animation through awaited MAUI opacity transitions on a dedicated panel.
 - Scheduling through a dispatcher timer that updates the UI and stops after five ticks.
 - Dynamic layout through runtime child insertion, movement and removal.
@@ -21,7 +23,10 @@ All application UI is defined in [MainPage.xaml](MainPage.xaml). `wwwroot/index.
 - **C# and XAML at the project root** define the MAUI application, UI, state and event handling. MAUI owns layout; the browser-side code does not implement a second UI renderer. XAML is compiled with MAUI's SourceGen inflator.
 - **`web/` is the browser source directory.** Edit the TypeScript here for startup and browser-only diagnostics. Backend asset preparation also places its JS bundle and public `.d.ts` files here so imports resolve locally; those supplied files are gitignored and should not be edited.
 - **`wwwroot/` contains handwritten static assets only**, including the HTML entry page. TypeScript does not emit here. This directory alone is not the complete runnable application.
-- **`artifacts/maui/` is the .NET publish output.** It contains the MAUI module's Wasm, runtime glue, backend JS and declarations, plus symbols/metadata when emitted by the toolchain. It is the frontend's only input from .NET, whether the backend is a source or package reference.
+- **`Resources/` contains app-declared resources.** Images/fonts can also be linked
+	from tracked repository fixtures in the csproj. These are standard MAUI items,
+	not handwritten web assets; `Resources/Raw/` includes sample data and licenses.
+- **`artifacts/maui/` is the .NET publish output.** It contains the MAUI module's Wasm, runtime glue, backend JS and declarations, the mandatory `maui-assets.json` and `maui-assets/` files, plus symbols/metadata when emitted by the toolchain. It is the frontend's only input from .NET, whether the backend is a source or package reference.
 - **`artifacts/typescript/` contains compiled application JS** emitted from `web/`. Edit the TS sources, not these outputs.
 - **`artifacts/wwwroot/` is the complete website.** npm site assembly combines all files from `artifacts/maui/`, `wwwroot/` and `artifacts/typescript/`. Serve or deploy this directory.
 
@@ -51,11 +56,98 @@ Each section demonstrates one integration boundary using normal MAUI APIs:
 | --- | --- | --- |
 | Events | Increment / Reset | Native clicks reaching C# event handlers |
 | Text input | Type, Set text, Select, Clear | Text, focus, selection and Completed notifications |
+| Packaged assets | Compare the four image frames; inspect the Label, Increment and text input fonts | Standard resource declarations, file/alias resolution and explicit image sizing |
 | Animation | Animate the preview panel | Awaited MAUI animations driven by browser frames |
 | Scheduling | Start/restart the timer | UI dispatcher timer callbacks and stopping |
 | Dynamic layout | Add / Move / Remove | MAUI child collections updating the rendered tree |
 
 These are user-facing examples, not a benchmark or proof of real-IME/cross-browser compatibility.
+
+## Packaged resource fixtures
+
+[BrowserSample.csproj](BrowserSample.csproj) declares `MauiImage`, `MauiFont` and
+`MauiAsset`. [MauiProgram.cs](MauiProgram.cs) uses standard
+`ConfigureFonts(fonts => fonts.AddFont("OpenSans-Regular.ttf", "OpenSansSample"))`.
+The resource demo needs no special website copies, asset URLs or `@font-face` CSS.
+
+For browser verification, scroll to **Packaged assets. Standard MAUI declarations.**
+Every image specifies **both** requested dimensions. The two SVG examples use the
+same **160 by 160** gray frame to isolate the effect of `Aspect`; the PNG and JPEG
+examples use **160 by 100**. Frames remain subject to MAUI layout constraints;
+natural dimensions do not determine their requested size.
+
+The original SVG is 240 by 120 and explicitly uses `preserveAspectRatio="none"`.
+This lets `Fill` visibly stretch the artwork instead of the SVG applying its own
+default aspect-preserving letterboxing. `AspectFit` still preserves the image's
+2:1 intrinsic ratio. This is an authoring choice in the sample SVG, not a build-time
+rewrite or a guarantee that every SVG will stretch with `Fill`.
+
+| Visible label | Logical source / registration | AutomationId | Expected rendering |
+| --- | --- | --- | --- |
+| SVG (.png alias) / AspectFit | `asset_shapes.png` → original `asset_shapes.svg` | `asset-svg-png` | Round circle; 160 by 80 artwork centered between gray bands |
+| SVG (.svg name) / Fill | `asset_shapes.svg` → same SVG | `asset-svg-direct` | Artwork fills the square; circle becomes a tall ellipse |
+| PNG / Center | `sample_bot.png` | `asset-png` | .NET bot centered without scaling; larger content clipped |
+| JPEG / AspectFill | `sample_popcorn.jpg` | `asset-jpeg` | Popcorn photograph covers frame with cropping |
+| Open Sans via AddFont: … | Label `FontFamily="OpenSansSample"` | `asset-font-label` | Registered font by alias |
+| Increment | Button `FontFamily="OpenSansSample"` | `increment-button` | Same font; original counter interaction still works |
+| Type here — including 中文 | Entry `FontFamily="OpenSans-Regular.ttf"` | `demo-entry` | Registered font by filename; original text events still work |
+| Raw packaging: data/asset-info.json … | `data/asset-info.json` | `asset-raw-note` | Informational text only; no file read takes place |
+
+Open Sans loads asynchronously, initially displaying fallback text. Inspect the
+loaded font rather than assuming that text being visible proves font success;
+glyphs not present in this font, including Chinese characters, still use fallback.
+
+### Sources and logical names
+
+Paths in this list are relative to the repository root unless stated otherwise:
+
+- **SVG:** sample-local `Resources/Images/asset_shapes.svg` is original geometric
+	artwork under the repository MIT license. Both `.png` and `.svg` logical names
+	resolve to that unchanged file; the browser does not receive a converted PNG.
+- **PNG:** `samples/EssentialsAISample/Resources/Images/dotnet_bot.png`, linked as
+	`Resources/Images/sample_bot.png`. The .NET bot comes from the
+	[CC0 .NET brand artwork](https://github.com/dotnet/brand).
+- **JPEG:** `src/Comet/sample/CometComposeProbe/Resources/drawable/placeholder.jpg`,
+	linked as `Resources/Images/sample_popcorn.jpg`. The tracked bytes match
+	[Jetsnack's fixture](https://github.com/android/compose-samples/blob/main/Jetsnack/app/src/main/res/drawable-nodpi/placeholder.jpg);
+	Jetsnack attributes its imagery to Unsplash. See the packaged notices for the
+	[Unsplash license](https://unsplash.com/license) and source details.
+- **Font:** `samples/DevFlow.Sample/Resources/Fonts/OpenSans-Regular.ttf`, linked as
+	`Resources/Fonts/OpenSans-Regular.ttf`. This font version's embedded metadata
+	specifies Apache 2.0 and Google Corporation's 2010–2011 copyright.
+- **Raw:** sample-local `Resources/Raw/data/asset-info.json` becomes
+	`data/asset-info.json` through `LogicalName`. License/attribution files become
+	`licenses/*`; the repository MIT license is explicitly linked as
+	`licenses/repository.txt`.
+
+Image/font logical names use the filename of `Link` (or the original filename).
+Raw preserves paths, with `Link` taking precedence over `LogicalName`. All lookups
+are case-sensitive. See the [full naming and metadata contract](../../README.md#logical-names-and-metadata).
+The app explicitly declares the linked binaries; no referenced app's resource
+graph is imported. Keep [asset notices](Resources/Raw/licenses/asset-notices.txt)
+and [Apache 2.0](Resources/Raw/licenses/Apache-2.0.txt) with redistributed assets.
+
+### Resource boundaries and failures
+
+Supported images are static PNG/JPG/JPEG/SVG file sources with explicit width and
+height and `AspectFit`, `AspectFill`, `Fill` or `Center`. There is no Uri/Stream/
+Font image source, image animation, transforms, intrinsic sizing, single-sided
+size inference, Resizetizer, SVG rasterization, resizing, tinting or density
+generation. Fonts support TTF/OTF through `AddFont` on Label/Button/Entry, not
+automatic assembly-embedded font discovery. Raw files are **packed only**:
+`FileSystem.OpenAppPackageFileAsync` and other browser FileSystem APIs are not
+implemented. The UI's Raw note does not prove a runtime file read.
+
+Build and publish generate the resource catalog/files automatically through the
+product's source-build entry point or NuGet's packaged targets. The frontend
+copies the complete publish output without interpreting resource declarations.
+`maui-assets.json` is mandatory even with no assets and loads before managed Main;
+missing/invalid catalogs are startup failures. Individual image/font failures
+instead emit nonfatal `maui-resource-error` on the mount (`event.detail` is a
+diagnostic string). A failed image is cleared; a failed font retains fallback.
+Other controls and diagnostics continue running. See the
+[resource regression checks](../../CONTRIBUTING.md#resource-regression-checks)
+for Node/managed tests and separate real-browser verification requirements.
 
 ## Runtime diagnostics
 
@@ -70,9 +162,9 @@ The source button opens the [backend repository directory](https://github.com/Ma
 
 Use the backend's [NuGet PackageReference instructions](../../README.md#consume-the-backend-package) for an external application. There are **no released packages currently**; use an experimental/local package version actually available from your configured feed.
 
-**The checked-in C# project is still a source-checkout development project.** It contains a backend `ProjectReference`, with no manual targets import, and inherits shared product build properties and root Central Package Management. Copying this directory alone does not make `BrowserSample.csproj` an independent NuGet consumer.
+**The checked-in C# project is still a source-checkout development project.** It contains a backend `ProjectReference`, with no manual targets import, and inherits shared product build properties, app asset targets and root Central Package Management. It also links image/font/license fixtures outside this directory. Copying this directory alone does not make `BrowserSample.csproj` an independent NuGet consumer. Copy/redeclare those licensed resources in the external app as well as configuring its toolchain.
 
-To adapt it for external consumption, replace the backend `ProjectReference` with a `PackageReference`, and supply your application's own browser toolchain properties, package versions and feeds formerly inherited from the checkout. That includes the target framework/`browser-wasm` RID, JS interop and NativeAOT/trimming settings, and matching LLVM runtime/compiler packages for an available compiler host. Retain SourceGen XAML and the backend `UnmanagedEntryPointsAssembly` entry. NuGet restore automatically imports the packaged `Content` items. Remove any manual backend import left from an older setup; do not substitute a NuGet-cache path. See the [toolchain requirements](../../README.md#toolchain-configuration) and [inherited configuration details](../../CONTRIBUTING.md#repository-configuration).
+To adapt it for external consumption, replace the backend `ProjectReference` with a `PackageReference`, and supply your application's own browser toolchain properties, package versions and feeds formerly inherited from the checkout. That includes the target framework/`browser-wasm` RID, JS interop and NativeAOT/trimming settings, and matching LLVM runtime/compiler packages for an available compiler host. Retain SourceGen XAML and the backend `UnmanagedEntryPointsAssembly` entry. NuGet restore automatically imports the packaged bridge `Content` and app resource rules. A source `ProjectReference` outside this product does not automatically import those rules. Remove any manual backend import left from an older setup; do not substitute a NuGet-cache path. See the [toolchain requirements](../../README.md#toolchain-configuration) and [inherited configuration details](../../CONTRIBUTING.md#repository-configuration).
 
 The **frontend pipeline is identical for package and source references**: its own npm project and scripts consume app-local `artifacts/maui/`, `web/` and `wwwroot/`, with no backend source, intermediate-output or NuGet-cache paths. Both reference types publish the same three backend asset filenames. Given a matching complete MAUI publish output, frontend preparation, compilation and site assembly need no C# build. This split does not establish that a copied, standalone C# project or its NativeAOT publish has been verified.
 
@@ -157,7 +249,13 @@ If packaging an already published site collected from another machine, pass that
 
 `index.html` is at the ZIP root. Keep the archive destination outside the source site. You can instead copy or ZIP the published directory using your usual deployment tools.
 
-Extract/upload the contents without changing relative paths. Serve `.js` as JavaScript and `.wasm` as `application/wasm`; no .NET server is required. The application uses relative asset URLs for root or subdirectory hosting. HTTP gzip/Brotli compression is independent of ZIP compression. Never mix cached runtime assets from different publishes.
+Extract/upload the contents without changing relative paths. Serve `.js` as JavaScript and `.wasm` as `application/wasm`, and serve the JSON catalog, SVG/PNG/JPEG and TTF/OTF resources with their corresponding content types, not SPA HTML fallbacks. No .NET server is required. Catalog and resource URLs resolve relative to `maui-browser.js`, supporting root or subdirectory hosting independently of the current page route. HTTP gzip/Brotli compression is independent of ZIP compression.
+
+Deploy the app/Wasm, runtime glue, backend JS, `maui-assets.json` and `maui-assets/`
+as **one matching publish**, preserving the packaged notices. Replace and invalidate
+caches together: resource filenames are not content-hashed, and the catalog's
+schema/application checks do not detect every mixture of releases. Never mix
+cached assets from different publishes or omit the catalog for an empty app.
 
 ## Limitations
 

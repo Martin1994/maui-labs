@@ -1,3 +1,8 @@
 <Project>
   <!-- Independent experimental build; not an Arcade shipping product yet. -->
+  <!-- ProjectReference does not import the referenced project's buildTransitive targets. -->
+  <PropertyGroup>
+    <_MauiBrowserAssetTaskProject>$(MSBuildThisFileDirectory)tools/Wasm.FluentUIWebComponents.Assets/Wasm.FluentUIWebComponents.Assets.csproj</_MauiBrowserAssetTaskProject>
+  </PropertyGroup>
+  <Import Project="./src/Wasm.FluentUIWebComponents/buildTransitive/MauiBrowser.AppAssets.targets" />
 </Project>

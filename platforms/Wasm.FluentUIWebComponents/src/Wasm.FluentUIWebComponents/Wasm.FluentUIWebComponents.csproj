@@ -6,6 +6,8 @@
         <!-- See: https://github.com/dotnet/runtimelab/blob/527a565752062b20bb9693eea6c884b34ecce7bf/docs/using-nativeaot/compiling.md#adjust-the-project-configuration -->
         <MSBuildEnableWorkloadResolver>false</MSBuildEnableWorkloadResolver>
     <BrowserBuildDirectory>$(MSBuildProjectDirectory)/obj/browser/$(Configuration)/$(TargetFramework)/$(RuntimeIdentifier)</BrowserBuildDirectory>
+    <!-- The host task owns its TFM and output layout, independently of the browser app. -->
+    <_BrowserAssetTaskGlobalPropertiesToRemove>TargetFramework;TargetFrameworks;RuntimeIdentifier;RuntimeIdentifiers;SelfContained;PublishAot;PublishTrimmed;OutputType;BaseOutputPath;OutputPath;OutDir;BaseIntermediateOutputPath;IntermediateOutputPath;MSBuildProjectExtensionsPath;ProjectAssetsFile;PublishDir;AssemblyName;TargetName;MauiBrowserEnableAppAssets</_BrowserAssetTaskGlobalPropertiesToRemove>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Maui.Controls" />
@@ -13,6 +15,9 @@
     <PackageReference Include="Microsoft.DotNet.ILCompiler.LLVM" PrivateAssets="all" />
     <ProjectReference Include="../../tools/Wasm.FluentUIWebComponents.CodeGen/Wasm.FluentUIWebComponents.CodeGen.csproj"
                       ReferenceOutputAssembly="false" OutputItemType="BrowserCodeGenerator" Private="false" PrivateAssets="all" />
+    <ProjectReference Include="../../tools/Wasm.FluentUIWebComponents.Assets/Wasm.FluentUIWebComponents.Assets.csproj"
+                      ReferenceOutputAssembly="false" OutputItemType="BrowserAssetTask" Private="false" PrivateAssets="all"
+                      GlobalPropertiesToRemove="$(_BrowserAssetTaskGlobalPropertiesToRemove)" />
     <MauiBrowserAsset Include="$(BrowserBuildDirectory)/wwwroot/maui-browser.js;$(BrowserBuildDirectory)/wwwroot/maui-browser.d.ts;$(BrowserBuildDirectory)/wwwroot/dotnet.d.ts">
       <TargetPath>%(Filename)%(Extension)</TargetPath>
     </MauiBrowserAsset>
@@ -20,7 +25,27 @@
              Pack="true" PackagePath="browser-assets/" />
     <None Update="buildTransitive/Microsoft.Maui.Platforms.Wasm.FluentUIWebComponents.targets"
           Pack="true" PackagePath="buildTransitive/Microsoft.Maui.Platforms.Wasm.FluentUIWebComponents.targets" />
+    <None Update="buildTransitive/MauiBrowser.AppAssets.targets" Pack="true" PackagePath="buildTransitive/MauiBrowser.AppAssets.targets" />
   </ItemGroup>
+  <Target Name="CollectBrowserAssetTaskForPack" BeforeTargets="_GetPackageFiles"
+          Condition="'$(DesignTimeBuild)' != 'true' and '$(IncludeContentInPack)' != 'false'">
+    <!-- Query in the pack instance: no-build packing has no resolved build outputs here.
+         GetTargetPath evaluates the tool project without restoring or building it. -->
+    <MSBuild Projects="@(ProjectReference->WithMetadataValue('OutputItemType', 'BrowserAssetTask'))"
+             Targets="GetTargetPath" Properties="Configuration=$(Configuration)"
+             RemoveProperties="$(_BrowserAssetTaskGlobalPropertiesToRemove)">
+      <Output TaskParameter="TargetOutputs" ItemName="_BrowserAssetTaskPackOutput" />
+    </MSBuild>
+    <Error Condition="'@(_BrowserAssetTaskPackOutput)' == ''"
+           Text="Could not resolve the browser asset task output from its ProjectReference." />
+    <Error Condition="!Exists('%(_BrowserAssetTaskPackOutput.Identity)')"
+           Text="Browser asset task output is missing: %(_BrowserAssetTaskPackOutput.Identity). Build the backend for $(Configuration) before packing with --no-build." />
+    <ItemGroup>
+      <!-- This is the package layout consumed by UsingTask, not a source output path. -->
+      <None Include="@(_BrowserAssetTaskPackOutput)" Pack="true"
+            PackagePath="tools/net10.0/Wasm.FluentUIWebComponents.Assets.dll" Visible="false" />
+    </ItemGroup>
+  </Target>
   <!-- MSBuildWorkspace loads the project in design-time mode; it does not run this target recursively. -->
   <Target Name="GenerateBrowserInterop" DependsOnTargets="ResolveProjectReferences"
           Condition="'$(DesignTimeBuild)' != 'true'">

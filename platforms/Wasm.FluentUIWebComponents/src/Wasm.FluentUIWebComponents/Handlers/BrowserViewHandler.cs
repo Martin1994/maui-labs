@@ -131,8 +131,10 @@ internal abstract class BrowserViewHandler<TView> : ViewHandler<TView, BrowserEl
     protected void SetFont(ITextStyle view)
     {
         var font = view.Font;
-        PlatformView.Style("font-size", BrowserElement.Number(font.Size > 0 ? font.Size : 16) + "px");
-        PlatformView.Style("font-family", font.Family ?? "system-ui, sans-serif");
+        var services = MauiContext!.Services;
+        var fontManager = services.GetRequiredService<IFontManager>();
+        PlatformView.Style("font-size", BrowserElement.Number(font.Size > 0 ? font.Size : fontManager.DefaultFontSize) + "px");
+        PlatformView.Style("font-family", BrowserFontManager.ResolveFamily(font.Family, services.GetRequiredService<IFontRegistrar>()));
         PlatformView.Style("font-weight", BrowserElement.Number((int)font.Weight));
         PlatformView.Style("font-style", font.Slant == FontSlant.Italic ? "italic" : "normal");
         Host.RequestLayout();

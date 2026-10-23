@@ -12,6 +12,12 @@ public static class MauiAppBuilderExtensions
     public static MauiAppBuilder UseFluentUIWebComponents(this MauiAppBuilder builder)
     {
         ArgumentNullException.ThrowIfNull(builder);
+        // ConfigureFonts installs factory-backed portable defaults and the standard
+        // FontInitializer. Override those defaults without reflecting into its delegates.
+        // Apps can replace either interface after UseFluentUIWebComponents as usual.
+        builder.ConfigureFonts();
+        builder.Services.AddSingleton<IFontRegistrar, BrowserFontRegistrar>();
+        builder.Services.AddSingleton<IFontManager, BrowserFontManager>();
         var host = BrowserApplication.Current;
         builder.Services.AddSingleton(host);
         builder.Services.AddSingleton<IDispatcherProvider>(host.Dispatcher);
@@ -42,6 +48,10 @@ public static class MauiAppBuilderExtensions
             handlers.AddHandler<Label>(_ =>
             {
                 return new BrowserLabelHandler();
+            });
+            handlers.AddHandler<Image>(_ =>
+            {
+                return new BrowserImageHandler();
             });
             handlers.AddHandler<Entry>(_ =>
             {
