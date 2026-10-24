@@ -113,8 +113,8 @@ mock boundaries and script-specific setup are documented in each test file's JSD
 
 | Validation layer | What it covers | Run when changing |
 | --- | --- | --- |
-| JS boundary tests: [viewport](scripts/test/browser-viewport.behaviour.test.mjs), [asset runtime](scripts/test/browser-assets-runtime.behaviour.test.mjs), [asset adapters](scripts/test/browser-assets-adapters.behaviour.test.mjs) | Layout scheduling, catalog/URL and startup behavior, image/font request lifecycle against controlled boundary doubles | Browser bridge, bootstrap, catalog resolver, image/font adapters or layout invalidation |
-| Managed and contract integration: [interop](scripts/test/browser-interop.behaviour.test.mjs), [managed assets](scripts/test/browser-assets-managed.behaviour.test.mjs) | Real code generation and TypeScript contract checks; MAUI handler/font-registration behavior with the JS boundary replaced | C# interop declarations, generator, handlers, hosting/font services or MAUI dependencies |
+| JS boundary tests: [viewport](scripts/test/browser-viewport.behaviour.test.mjs), [asset runtime](scripts/test/browser-assets-runtime.behaviour.test.mjs), [asset adapters](scripts/test/browser-assets-adapters.behaviour.test.mjs), [selection](scripts/test/browser-selection.behaviour.test.mjs) | Layout scheduling, resources, Picker/Switch state and event ordering against controlled boundary doubles | Browser bridge, adapters or layout invalidation |
+| Managed and contract integration: [interop](scripts/test/browser-interop.behaviour.test.mjs), [managed assets](scripts/test/browser-assets-managed.behaviour.test.mjs), [managed selection](scripts/test/browser-selection-managed.behaviour.test.mjs) | Real code generation, TypeScript contracts and MAUI handlers/bindings with the JS boundary replaced | C# interop declarations, generator, handlers, hosting/font services or MAUI dependencies |
 | Build and distribution integration: [backend build](scripts/test/browser.build.test.mjs), [app assets](scripts/test/browser-assets.build.test.mjs) | Real build/pack/restore and managed SDK publish through source/package paths; site assembly, resource bytes, diagnostics and incremental cleanup | MSBuild rules, package contents, dependency configuration, build/site scripts or resource naming/ownership |
 
 During development, run the relevant layer. Before submitting backend changes, run
@@ -140,8 +140,7 @@ npm run test:build
 ```
 
 The initial build provides restored MAUI references and Release package inputs.
-`test:behaviour` runs the backend JS, contract and managed checks, then delegates to
-`npm test` in `samples/BrowserSample`, keeping sample coverage in the full command.
+`test:behaviour` runs the backend JS, contract and managed checks.
 Its pretest hook builds CodeGen but does not restore the backend. `test:build` runs the two build
 suites serially and has no setup hook. Keep the initial build for cold checkouts
 rather than relying on an earlier developer build or test execution order.

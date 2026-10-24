@@ -14,16 +14,14 @@
                     <Label Text="MAUI LABS / FLUENT WEB COMPONENTS" Style="{StaticResource HeaderEyebrow}" />
                     <Label Text="Experimental browser backend" Style="{StaticResource Metadata}" />
                 </VerticalStackLayout>
-                <VerticalStackLayout x:Name="ThemeSelector" Grid.Row="1" Spacing="8"
-                                     HorizontalOptions="End" VerticalOptions="Start">
-                    <Grid x:Name="ThemeButtons" ColumnDefinitions="Auto,Auto,Auto" ColumnSpacing="8" RowSpacing="8">
-                        <Button x:Name="SystemThemeButton" Text="System" Clicked="OnSystemThemeClicked" AutomationId="theme-system" />
-                        <Button x:Name="LightThemeButton" Grid.Column="1" Text="Light" Clicked="OnLightThemeClicked" AutomationId="theme-light" />
-                        <Button x:Name="DarkThemeButton" Grid.Column="2" Text="Dark" Clicked="OnDarkThemeClicked" AutomationId="theme-dark" />
-                    </Grid>
-                    <Label x:Name="ThemeStatusLabel" Style="{StaticResource Metadata}" AutomationId="theme-status"
-                           HorizontalTextAlignment="End" />
-                </VerticalStackLayout>
+                                <Grid x:Name="ThemeSelector" Grid.Row="1" ColumnDefinitions="Auto,Auto" ColumnSpacing="8"
+                                            HorizontalOptions="End" VerticalOptions="Start">
+                                        <Label Text="Theme:" Style="{StaticResource FieldLabel}" VerticalOptions="Center" />
+                                        <Picker Grid.Column="1" Title="Theme" MinimumWidthRequest="160"
+                                                        ItemsSource="{Binding Theme.Choices, Mode=OneWay}"
+                                                        SelectedIndex="{Binding Theme.SelectedIndex, Mode=TwoWay}" AutomationId="theme-picker"
+                                                        SemanticProperties.Description="Theme" />
+                                </Grid>
             </Grid>
             <VerticalStackLayout Spacing="14">
                   <Label Text="Your XAML. A new horizon." Style="{StaticResource PageTitle}" />
@@ -75,38 +73,22 @@
                             <Entry Text="{Binding Tagline, Mode=TwoWay}" Placeholder="Add a little personality"
                                    MaxLength="100" ReturnType="Done" Completed="OnEntryCompleted"
                                    AutomationId="card-tagline-input" SemanticProperties.Description="Card tagline" />
-                            <Label Text="Artwork" Style="{StaticResource FieldLabel}" />
-                            <!-- TODO: Replace these explicit choices with a Picker when its browser handler is available. -->
-                            <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
-                                <Button Text=".NET 10" Command="{Binding SelectRasterCommand, Mode=OneWay}" AutomationId="artwork-raster">
-                                    <Button.Triggers>
-                                        <DataTrigger TargetType="Button" Binding="{Binding IsRasterArtwork, Mode=OneWay}" Value="True">
-                                            <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource DotNetBrandColor}, Dark={StaticResource DotNetBrandDarkColor}}" />
-                                            <Setter Property="TextColor" Value="{AppThemeBinding Light=White, Dark=Black}" />
-                                        </DataTrigger>
-                                    </Button.Triggers>
-                                </Button>
-                                <Button Grid.Column="1" Text=".NET bot" Command="{Binding SelectVectorCommand, Mode=OneWay}" AutomationId="artwork-vector">
-                                    <Button.Triggers>
-                                        <DataTrigger TargetType="Button" Binding="{Binding IsVectorArtwork, Mode=OneWay}" Value="True">
-                                            <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource DotNetBrandColor}, Dark={StaticResource DotNetBrandDarkColor}}" />
-                                            <Setter Property="TextColor" Value="{AppThemeBinding Light=White, Dark=Black}" />
-                                        </DataTrigger>
-                                    </Button.Triggers>
-                                </Button>
-                            </Grid>
-                            <Label Text="{Binding ArtworkDescription, Mode=OneWay}" Style="{StaticResource Hint}" AutomationId="artwork-choice" />
-                            <Label Text="Font" Style="{StaticResource FieldLabel}" />
-                            <!-- TODO: Replace the stateful Button with a native toggle when supported by the backend. -->
-                            <Button Text="{Binding FontToggleText, Mode=OneWay}" Command="{Binding ToggleFontCommand, Mode=OneWay}"
-                                    HorizontalOptions="Start" AutomationId="font-toggle">
-                                <Button.Triggers>
-                                    <DataTrigger TargetType="Button" Binding="{Binding UseCustomFont, Mode=OneWay}" Value="True">
-                                        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource DotNetBrandColor}, Dark={StaticResource DotNetBrandDarkColor}}" />
-                                        <Setter Property="TextColor" Value="{AppThemeBinding Light=White, Dark=Black}" />
-                                    </DataTrigger>
-                                </Button.Triggers>
-                            </Button>
+                                <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="8"
+                                  AutomationId="artwork-font-options">
+                                <Label Text="Artwork" Style="{StaticResource FieldLabel}" />
+                                <Label Grid.Column="1" Text="Font" Style="{StaticResource FieldLabel}" />
+                                <Picker Grid.Row="1" Title="Choose artwork" ItemsSource="{Binding ArtworkChoices, Mode=OneWay}"
+                                    SelectedIndex="{Binding SelectedArtworkIndex, Mode=TwoWay}"
+                                    AutomationId="artwork-picker" SemanticProperties.Description="Artwork" />
+                                <HorizontalStackLayout Grid.Row="1" Grid.Column="1" Spacing="8" VerticalOptions="Center">
+                                    <Switch IsToggled="{Binding UseCustomFont, Mode=TwoWay}"
+                                        VerticalOptions="Center" AutomationId="font-switch"
+                                        SemanticProperties.Description="Use Open Sans font" />
+                                    <Label Text="Open Sans" VerticalOptions="Center" Style="{StaticResource FieldLabel}" />
+                                </HorizontalStackLayout>
+                                <Label Grid.Row="2" Grid.ColumnSpan="2" Text="{Binding ArtworkDescription, Mode=OneWay}"
+                                       Style="{StaticResource Hint}" AutomationId="artwork-choice" />
+                                </Grid>
                             <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
                                 <Button Text="Try a preset" Command="{Binding NextPresetCommand, Mode=OneWay}" Clicked="OnPresetClicked" AutomationId="preset-next" />
                                 <Button Grid.Column="1" Text="Reset" Command="{Binding ResetCommand, Mode=OneWay}" AutomationId="draft-reset" />

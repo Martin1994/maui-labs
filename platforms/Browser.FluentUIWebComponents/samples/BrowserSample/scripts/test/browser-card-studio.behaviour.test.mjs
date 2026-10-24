@@ -50,6 +50,7 @@ test('CardStudio managed behavior: production sources, real MAUI Command and DI'
     const sources = [
         'Models/CardDesign.cs', 'Services/ICardPresetService.cs',
         'Services/CardPresetService.cs', 'ViewModels/CardStudioViewModel.cs',
+        'ViewModels/ThemeViewModel.cs',
         'Views/ArrangedStackLayout.cs',
     ];
     writeFileSync(join(directory, 'Fixture.csproj'), `<Project Sdk="Microsoft.NET.Sdk">
@@ -65,6 +66,7 @@ test('CardStudio managed behavior: production sources, real MAUI Command and DI'
         ${sources.map(file => `<Compile Include="${escapeXml(join(sample, file))}" />`).join('\n')}
         <Compile Include="SampleRegistrations.cs" />
         <Compile Include="${escapeXml(join(sample, 'scripts/test/fixtures/card-studio-managed.cs'))}" />
+        <Compile Include="${escapeXml(join(sample, 'scripts/test/fixtures/theme-managed.cs'))}" />
       </ItemGroup>
     </Project>`);
     writeFileSync(join(directory, 'SampleRegistrations.cs'), `
@@ -86,7 +88,7 @@ internal static class SampleRegistrations
     assert.ifError(build.error);
     assert.equal(build.status, 0, build.stdout + build.stderr);
     for (const scenario of ['initial', 'injected-di', 'invalid-service', 'notifications', 'blank-title',
-        'snapshots', 'capacity', 'move', 'guards', 'presets', 'artwork', 'fonts', 'arrange']) {
+        'snapshots', 'capacity', 'move', 'guards', 'presets', 'artwork', 'fonts', 'arrange', 'themes']) {
         await t.test(scenario, () => {
             const run = spawnSync('dotnet', [join(directory, 'bin/Debug/net10.0/Fixture.dll'), scenario], {
                 cwd: root, encoding: 'utf8', timeout: 30_000,
@@ -117,6 +119,29 @@ test('CardStudio source contract only: typed XAML, explicit TwoWay inputs and So
         assert.doesNotMatch(matches[0], /\bFontFamily=/, 'Draft font choices must not change the editor font.');
     }
     const xamlItems = [...project.matchAll(/<MauiXaml\b[^>]*>/g)].map(([tag]) => tag);
+    const pickers = [...page.matchAll(/<Picker\b[^>]*>/g)].map(([tag]) => tag);
+    const picker = pickers.find(tag => tag.includes('AutomationId="artwork-picker"')) ?? '';
+    assert.match(picker, /SelectedIndex="\{Binding SelectedArtworkIndex, Mode=TwoWay\}"/);
+    assert.match(picker, /ItemsSource="\{Binding ArtworkChoices, Mode=OneWay\}"/);
+    assert.match(picker, /Grid.Row="1"/);
+    const themePicker = pickers.find(tag => tag.includes('AutomationId="theme-picker"')) ?? '';
+    assert.match(themePicker, /ItemsSource="\{Binding Theme\.Choices, Mode=OneWay\}"/);
+    assert.match(themePicker, /SelectedIndex="\{Binding Theme\.SelectedIndex, Mode=TwoWay\}"/);
+    assert.doesNotMatch(themePicker, /SelectedIndexChanged=|x:Name=/);
+    const pageCode = readFileSync(join(sample, 'MainPage.xaml.cs'), 'utf8');
+    const themeCode = readFileSync(join(sample, 'ViewModels/ThemeViewModel.cs'), 'utf8');
+    assert.doesNotMatch(pageCode, /ThemePicker|OnThemeSelected|UserAppTheme|RequestedThemeChanged/,
+        'Code-behind must only connect/disconnect theme lifecycle, not synchronize the Picker.');
+    assert.doesNotMatch(themeCode, /BrowserApplication|SystemThemeChanged|PlatformAppTheme/,
+        'Sample theme UI must use standard effective-theme APIs, not a backend-specific event.');
+    assert.match(themeCode, /app\.UserAppTheme == AppTheme\.Unspecified\s*\? \$"System \(\{app\.RequestedTheme\}\)"\s*:\s*"System"/);
+    assert.doesNotMatch(page, /ThemeButtons|ThemeStatusLabel|On(?:System|Light|Dark)ThemeClicked/);
+    assert.match(page, /<Grid ColumnDefinitions="\*,\*"[^>]*AutomationId="artwork-font-options"/);
+    assert.match(page, /<HorizontalStackLayout Grid.Row="1" Grid.Column="1"[^>]*>[\s\S]*?<Switch/);
+    const control = page.match(/<Switch\b[^>]*>/)?.[0] ?? '';
+    assert.match(control, /IsToggled="\{Binding UseCustomFont, Mode=TwoWay\}"/);
+    assert.match(control, /AutomationId="font-switch"/);
+    assert.doesNotMatch(page, /ToggleButton|xmlns:fluent=/, 'The sample uses only standard MAUI controls for selection.');
     assert.ok(xamlItems.some(tag => /Include="\*\*\/\*\.xaml"/.test(tag) && /Inflator="SourceGen"/.test(tag)),
         'The sample must explicitly opt its XAML files into SourceGen.');
     assert.match(project, /<Compile\b[^>]*\bRemove="scripts\/test\/\*\*\/\*\.cs"/,

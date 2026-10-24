@@ -90,6 +90,9 @@ internal static class Program
             case "arrange":
                 Arrange();
                 break;
+            case "themes":
+                ThemeAssertions.Run();
+                break;
             default:
                 throw new Exception($"Unknown scenario: {args[0]}");
         }
@@ -360,20 +363,26 @@ internal static class Program
         vm.Tagline = "Keep my tagline";
         var properties = new List<string?>();
         vm.PropertyChanged += (_, e) => properties.Add(e.PropertyName);
-        Execute(vm.SelectVectorCommand);
+        Check(vm.ArtworkChoices.SequenceEqual(new[] { ".NET 10", ".NET bot" }) && vm.SelectedArtworkIndex == 0, "Picker choices and initial selection.");
+        vm.SelectedArtworkIndex = 1;
         Check(vm.Artwork == "sample_bot_vector.svg" && vm.IsVectorArtwork && !vm.IsRasterArtwork, "Vector selection did not update state.");
-        Check(properties.SequenceEqual(new[] { "Artwork", "IsRasterArtwork", "IsVectorArtwork", "ArtworkDescription" }), "Selection must notify its dependent bindings.");
+        Check(properties.SequenceEqual(new[] { "Artwork", "IsRasterArtwork", "IsVectorArtwork", "ArtworkDescription", "SelectedArtworkIndex" }), "Selection must notify its dependent bindings.");
         properties.Clear();
-        Execute(vm.SelectVectorCommand);
+        vm.SelectedArtworkIndex = 1;
         Check(properties.Count == 0, "Reselecting the same artwork should be a no-op.");
         Execute(vm.AddCardCommand);
-        Execute(vm.SelectRasterCommand);
+        vm.SelectedArtworkIndex = 0;
         Check(vm.IsRasterArtwork && !vm.IsVectorArtwork && vm.Artwork == "sample_bot.png", "Raster selection failed.");
         Check(vm.Title == "Keep my text" && vm.Tagline == "Keep my tagline" && !vm.UseCustomFont, "Artwork selection must not reset other fields.");
         Check(vm.Cards[0].Artwork == "sample_bot_vector.svg", "Existing snapshots must retain their artwork.");
         Execute(vm.NextPresetCommand);
         Execute(vm.NextPresetCommand);
         Check(vm.Artwork == "sample_bot_vector.png" && vm.IsVectorArtwork, "SVG alias must select the same vector choice.");
+        Check(vm.SelectedArtworkIndex == 1, "Preset alias must update Picker selection.");
+        vm.SelectedArtworkIndex = 1;
+        vm.SelectedArtworkIndex = -1;
+        vm.SelectedArtworkIndex = 99;
+        Check(vm.Artwork == "sample_bot_vector.png", "Unchanged and transient/invalid selections must preserve the alias.");
     }
 
     private static void Fonts()
@@ -384,14 +393,15 @@ internal static class Program
         var before = new CardDesign(vm.Title, vm.Tagline, vm.Artwork);
         var properties = new List<string?>();
         vm.PropertyChanged += (_, e) => properties.Add(e.PropertyName);
-        Execute(vm.ToggleFontCommand);
+        vm.UseCustomFont = true;
         Check(vm.UseCustomFont && vm.FontFamily == "OpenSansSample", "Custom font must resolve through its registered alias.");
-        Check(vm.FontToggleText == "Open Sans: on", "Toggle text must expose current state.");
-        Check(properties.SequenceEqual(new[] { "UseCustomFont", "FontFamily", "FontToggleText" }), "Font changes must notify all dependent bindings.");
+        Check(properties.SequenceEqual(new[] { "UseCustomFont", "FontFamily" }), "Font changes must notify all dependent bindings.");
+        vm.UseCustomFont = true;
+        Check(properties.Count == 2, "Writing unchanged toggle state must not notify again.");
         Check(new CardDesign(vm.Title, vm.Tagline, vm.Artwork) == before, "Font selection must not reset text/artwork.");
         Execute(vm.AddCardCommand);
-        Execute(vm.ToggleFontCommand);
-        Check(!vm.UseCustomFont && vm.FontFamily is null && vm.FontToggleText == "Open Sans: off", "Toggle must restore the default font.");
+        vm.UseCustomFont = false;
+        Check(!vm.UseCustomFont && vm.FontFamily is null, "Toggle must restore the default font.");
         Check(vm.Cards[0].UseCustomFont && vm.Cards[0].FontFamily == "OpenSansSample", "Snapshot must retain selected font.");
         Execute(vm.NextPresetCommand);
         Check(vm.UseCustomFont, "Preset must load its font choice.");

@@ -31,22 +31,17 @@ public sealed class CardStudioViewModel : INotifyPropertyChanged
         AddCardCommand = new Command(AddCard, () => !string.IsNullOrWhiteSpace(Title) && _cards.Count < BoardCapacity);
         NextPresetCommand = new Command(NextPreset);
         ResetCommand = new Command(() => LoadPreset(0));
-        SelectRasterCommand = new Command(() => Artwork = "sample_bot.png");
-        SelectVectorCommand = new Command(() => Artwork = "sample_bot_vector.svg");
-        ToggleFontCommand = new Command(() => UseCustomFont = !UseCustomFont);
         MoveFirstCommand = new Command(MoveFirst, () => _cards.Count > 1);
         RemoveLastCommand = new Command(RemoveLast, () => _cards.Count > 0);
         LoadPreset(0);
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
+    public ThemeViewModel Theme { get; } = new();
     public ReadOnlyObservableCollection<CardDesign> Cards { get; }
     public Command AddCardCommand { get; }
     public Command NextPresetCommand { get; }
     public Command ResetCommand { get; }
-    public Command SelectRasterCommand { get; }
-    public Command SelectVectorCommand { get; }
-    public Command ToggleFontCommand { get; }
     public Command MoveFirstCommand { get; }
     public Command RemoveLastCommand { get; }
 
@@ -79,6 +74,7 @@ public sealed class CardStudioViewModel : INotifyPropertyChanged
                 OnPropertyChanged(nameof(IsRasterArtwork));
                 OnPropertyChanged(nameof(IsVectorArtwork));
                 OnPropertyChanged(nameof(ArtworkDescription));
+                OnPropertyChanged(nameof(SelectedArtworkIndex));
             }
         }
     }
@@ -87,21 +83,35 @@ public sealed class CardStudioViewModel : INotifyPropertyChanged
     public bool IsVectorArtwork => Artwork is "sample_bot_vector.svg" or "sample_bot_vector.png";
     public string ArtworkDescription => IsRasterArtwork ? "Selected: .NET 10 submarine" : "Selected: .NET bot";
 
+    public IReadOnlyList<string> ArtworkChoices { get; } = Array.AsReadOnly(new[] { ".NET 10", ".NET bot" });
+
+    public int SelectedArtworkIndex
+    {
+        get => IsRasterArtwork ? 0 : IsVectorArtwork ? 1 : -1;
+        set
+        {
+            // Ignore the transient no-selection state while Picker replaces Items.
+            // Preserve the preset's SVG alias when the selected choice is unchanged.
+            if (value != SelectedArtworkIndex && value is 0 or 1)
+            {
+                Artwork = value == 0 ? "sample_bot.png" : "sample_bot_vector.svg";
+            }
+        }
+    }
+
     public bool UseCustomFont
     {
         get => _useCustomFont;
-        private set
+        set
         {
             if (SetProperty(ref _useCustomFont, value))
             {
                 OnPropertyChanged(nameof(FontFamily));
-                OnPropertyChanged(nameof(FontToggleText));
             }
         }
     }
 
     public string? FontFamily => UseCustomFont ? "OpenSansSample" : null;
-    public string FontToggleText => UseCustomFont ? "Open Sans: on" : "Open Sans: off";
 
     public string DraftHint => string.IsNullOrWhiteSpace(Title)
         ? "Give your card a title before adding it."

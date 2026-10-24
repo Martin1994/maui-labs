@@ -23,7 +23,7 @@ const bundle = await build({
     plugins: [{
         name: 'viewport-test-boundaries',
         setup(builder) {
-            builder.onResolve({ filter: /^\.\/(theme|input|input\.styles)\.js$/ }, args => ({ path: args.path, namespace: 'boundary' }));
+            builder.onResolve({ filter: /^\.\/(theme|input|input\.styles|picker|switch)\.js$/ }, args => ({ path: args.path, namespace: 'boundary' }));
             builder.onLoad({ filter: /.*/, namespace: 'boundary' }, () => ({ contents: `
                 export class BrowserTheme {
                     getSystemTheme() { return 'Light'; }
@@ -33,6 +33,9 @@ const bundle = await build({
                     dispose() {}
                 }
                 export class BrowserTextInput { constructor() { throw Error('Unexpected input'); } }
+                export class BrowserPicker { constructor() { throw Error('Unexpected picker'); } }
+                export class BrowserSwitch { constructor() { throw Error('Unexpected switch'); } }
+                export function createSwitchStyles() { throw Error('Unexpected switch styles'); }
                 export function createInputStyles() { throw Error('Unexpected input styles'); }
             ` }));
         },

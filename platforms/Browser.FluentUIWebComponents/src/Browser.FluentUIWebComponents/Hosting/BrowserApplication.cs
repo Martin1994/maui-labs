@@ -246,6 +246,53 @@ public sealed partial class BrowserApplication : IPlatformApplication, IDisposab
             }
         });
     }
+    [JSExport]
+    public static void OnPickerSelection(int id, int index)
+    {
+        WithPicker(id, picker => picker.Selected(index));
+    }
+    [JSExport]
+    public static void OnPickerOpen(int id, bool open)
+    {
+        WithPicker(id, picker => picker.Opened(open));
+    }
+    [JSExport]
+    public static void OnPickerFocus(int id, bool focused)
+    {
+        WithPicker(id, picker => picker.Focused(focused));
+    }
+    private static void WithPicker(int id, Action<PickerHandler> action)
+    {
+        Boundary(() =>
+        {
+            if (_current is { _closed: false } host && host._handlers.TryGetValue(id, out var handler)
+                && handler is PickerHandler picker && handler.PlatformView is not null)
+            {
+                action(picker);
+            }
+        });
+    }
+    [JSExport]
+    public static void OnSwitchChanged(int id, bool isOn)
+    {
+        WithSwitch(id, control => control.Changed(isOn));
+    }
+    [JSExport]
+    public static void OnSwitchFocus(int id, bool focused)
+    {
+        WithSwitch(id, control => control.Focused(focused));
+    }
+    private static void WithSwitch(int id, Action<SwitchHandler> action)
+    {
+        Boundary(() =>
+        {
+            if (_current is { _closed: false } host && host._handlers.TryGetValue(id, out var handler)
+                && handler is SwitchHandler control && handler.PlatformView is not null)
+            {
+                action(control);
+            }
+        });
+    }
     private static void WithInput(int id, Action<EntryHandler> action)
     {
         Boundary(() =>

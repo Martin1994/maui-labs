@@ -61,6 +61,14 @@ public static class MauiAppBuilderExtensions
             {
                 return new ButtonHandler();
             });
+            handlers.AddHandler<Switch>(_ =>
+            {
+                return new SwitchHandler();
+            });
+            handlers.AddHandler<Picker>(_ =>
+            {
+                return new PickerHandler();
+            });
             handlers.AddHandler<Border>(_ =>
             {
                 return new BorderHandler();

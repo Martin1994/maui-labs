@@ -54,6 +54,8 @@ Reuse a matching Fluent component first. Custom elements are reserved for behavi
 | --- | --- | --- | --- |
 | Direct Fluent mapping | Label | `fluent-text` | Text, wrapping, font and horizontal alignment |
 | Direct Fluent mapping | Button | `fluent-button` | Click, text, enabled state, color and padding |
+| Direct Fluent mapping | Picker | `fluent-dropdown`, `fluent-listbox`, `fluent-option` | Items/ItemsSource, two-way selection, title, text styling, enabled state, focus and IsOpen |
+| Direct Fluent mapping | Switch | `fluent-switch` | Two-way IsToggled, Toggled, OnColor/OffColor/ThumbColor, enabled state and focus |
 | Direct Fluent mapping | Entry | `fluent-text-input` | Text, focus, selection, input state, placeholder and keyboard hints |
 | Direct Fluent mapping | Image | `fluent-image` with an owned `img` | Packaged static files, explicit width and height, four MAUI Aspects |
 | Custom MAUI component | ScrollView | `maui-scroll-view` | Vertical viewport, offsets and scroll notifications |
@@ -61,6 +63,10 @@ Reuse a matching Fluent component first. Custom elements are reserved for behavi
 | Standard DOM container | Border | `div` | Solid rectangular/rounded stroke and content padding |
 
 The application/window handlers establish the root and its lifecycle rather than render additional Fluent controls. Individual handler XML documentation describes component mappings and compatibility adaptations; the table does not imply complete MAUI control parity.
+
+Remarks: Dropdown text styling currently includes a Fluent 3.1.3-specific
+shadow style adaptation because that component exposes no control CSS part;
+recheck it when upgrading Fluent. Browser Popover API support is required.
 
 ### Platform services
 

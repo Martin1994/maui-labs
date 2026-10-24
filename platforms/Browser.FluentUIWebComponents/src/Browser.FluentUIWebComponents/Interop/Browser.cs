@@ -4,6 +4,26 @@ namespace Microsoft.Maui.Platforms.Browser.FluentUIWebComponents;
 
 internal static partial class Browser
 {
+    [JSImport("subscribePicker", "maui-browser")]
+    internal static partial void SubscribePicker(int id);
+    [JSImport("pickerClear", "maui-browser")]
+    internal static partial void PickerClear(int id);
+    [JSImport("pickerAdd", "maui-browser")]
+    internal static partial void PickerAdd(int id, string text);
+    [JSImport("pickerCommit", "maui-browser")]
+    internal static partial void PickerCommit(int id, int index);
+    [JSImport("pickerSelection", "maui-browser")]
+    internal static partial void PickerSelection(int id, int index);
+    [JSImport("pickerEnabled", "maui-browser")]
+    internal static partial void PickerEnabled(int id, bool enabled);
+    [JSImport("pickerOpen", "maui-browser")]
+    internal static partial void PickerOpen(int id, bool open);
+    [JSImport("pickerFocus", "maui-browser")]
+    internal static partial bool PickerFocus(int id, bool focused);
+    [JSImport("subscribeSwitch", "maui-browser")]
+    internal static partial void SubscribeSwitch(int id);
+    [JSImport("switchFocus", "maui-browser")]
+    internal static partial bool SwitchFocus(int id, bool focused);
     [JSImport("startTicker", "maui-browser")]
     internal static partial void StartTicker(int maxFps);
     [JSImport("stopTicker", "maui-browser")]

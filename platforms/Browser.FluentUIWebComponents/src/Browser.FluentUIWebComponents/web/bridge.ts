@@ -5,6 +5,8 @@ import { createInputStyles } from './input.styles.js';
 import type { BrowserAssetCatalog } from './assets.js';
 import { BrowserImages } from './images.js';
 import { BrowserFonts } from './fonts.js';
+import { BrowserPicker } from './picker.js';
+import { BrowserSwitch, createSwitchStyles } from './switch.js';
 
 // DOM nodes and listeners stay JS-owned; MAUI computes container frames.
 export class DomBrowserBridge implements BrowserBridge {
@@ -22,6 +24,9 @@ export class DomBrowserBridge implements BrowserBridge {
     readonly #scrolls = new Map<number, EventListener>();
     readonly #timers = new Map<number, number>();
     readonly #inputs = new Map<number, BrowserTextInput>();
+    readonly #pickers = new Map<number, BrowserPicker>();
+    readonly #switches = new Map<number, BrowserSwitch>();
+    #switchStyles: HTMLStyleElement | undefined;
     #inputStyles: HTMLStyleElement | undefined;
     #sequence = 0;
     #observer: ResizeObserver | undefined;
@@ -69,6 +74,16 @@ export class DomBrowserBridge implements BrowserBridge {
         // Interop may invoke these as detached functions. Bind once, and expose
         // only the import contract rather than the class instance/prototype.
         this.imports = {
+            subscribePicker: this.#subscribePicker.bind(this),
+            pickerClear: id => this.#picker(id).clear(),
+            pickerAdd: (id, text) => this.#picker(id).add(text),
+            pickerCommit: (id, index) => this.#picker(id).commit(index),
+            pickerSelection: (id, index) => this.#picker(id).select(index),
+            pickerEnabled: (id, enabled) => this.#picker(id).setEnabled(enabled),
+            pickerOpen: (id, open) => this.#picker(id).setOpen(open),
+            pickerFocus: (id, focused) => this.#picker(id).focus(focused),
+            subscribeSwitch: this.#subscribeSwitch.bind(this),
+            switchFocus: (id, focused) => this.#switch(id).focus(focused),
             imageSource: (id, name, request) => this.#images.setSource(id, this.#get(id), name, request),
             imageAspect: (id, aspect) => this.#images.setAspect(id, aspect),
             fontFamily: filename => this.#fonts.getFamily(filename),
@@ -123,6 +138,48 @@ export class DomBrowserBridge implements BrowserBridge {
             throw new Error(`Stale MAUI element handle: ${id}`);
         }
         return element;
+    }
+
+    #picker(id: number): BrowserPicker {
+        this.#get(id);
+        const picker = this.#pickers.get(id);
+        if (!picker) {
+            throw new Error(`Picker is not subscribed: ${id}`);
+        }
+        return picker;
+    }
+
+    #subscribePicker(id: number): void {
+        if (this.#stopped || this.#pickers.has(id)) {
+            throw new Error('Picker subscription is stopped or duplicated');
+        }
+        this.#pickers.set(id, new BrowserPicker(this.#get(id),
+            index => this.#invoke(() => this.#getApi().OnPickerSelection(id, index)),
+            open => this.#invoke(() => this.#getApi().OnPickerOpen(id, open)),
+            focused => this.#invoke(() => this.#getApi().OnPickerFocus(id, focused)),
+            this.#requestLayout));
+    }
+
+    #switch(id: number): BrowserSwitch {
+        this.#get(id);
+        const control = this.#switches.get(id);
+        if (!control) {
+            throw new Error(`Switch is not subscribed: ${id}`);
+        }
+        return control;
+    }
+
+    #subscribeSwitch(id: number): void {
+        if (this.#stopped || this.#switches.has(id)) {
+            throw new Error('Switch subscription is stopped or duplicated');
+        }
+        this.#switches.set(id, new BrowserSwitch(this.#get(id),
+            isOn => this.#invoke(() => this.#getApi().OnSwitchChanged(id, isOn)),
+            focused => this.#invoke(() => this.#getApi().OnSwitchFocus(id, focused))));
+        if (!this.#switchStyles) {
+            this.#switchStyles = createSwitchStyles();
+            this.#viewport.append(this.#switchStyles);
+        }
     }
 
     #input(id: number): BrowserTextInput {
@@ -284,6 +341,14 @@ export class DomBrowserBridge implements BrowserBridge {
         for (const input of this.#inputs.values()) {
             input.dispose();
         }
+        for (const picker of this.#pickers.values()) {
+            picker.dispose();
+        }
+        for (const control of this.#switches.values()) {
+            control.dispose();
+        }
+        this.#switchStyles?.remove();
+        this.#switchStyles = undefined;
         this.#inputStyles?.remove();
         this.#inputStyles = undefined;
         this.#theme.dispose();
@@ -374,12 +439,17 @@ export class DomBrowserBridge implements BrowserBridge {
 
     #measure(id: number, width: number, height: number, returnHeight: boolean): number {
         this.#inputs.get(id)?.flush();
+        this.#pickers.get(id)?.flush();
         const element = this.#get(id);
         const saved = element.style.cssText;
         try {
+            // Switch has a fixed natural size in Fluent CSS, not text-derived
+            // max-content sizing. Remove only MAUI's arranged width/height so
+            // measurement uses that native size rather than duplicating constants.
+            const fixedSize = this.#switches.has(id);
             Object.assign(element.style, {
-                width: 'max-content',
-                height: 'auto',
+                width: fixedSize ? '' : 'max-content',
+                height: fixedSize ? '' : 'auto',
                 maxWidth: Number.isFinite(width) ? `${Math.max(0, width)}px` : 'none',
                 maxHeight: 'none',
             });
@@ -406,6 +476,10 @@ export class DomBrowserBridge implements BrowserBridge {
         this.#images.release(id);
         this.#inputs.get(id)?.dispose();
         this.#inputs.delete(id);
+        this.#pickers.get(id)?.dispose();
+        this.#pickers.delete(id);
+        this.#switches.get(id)?.dispose();
+        this.#switches.delete(id);
         this.#unmount(id);
         this.#unsubscribeClick(id);
         const onScroll = this.#scrolls.get(id);
